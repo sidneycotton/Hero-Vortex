@@ -1,0 +1,346 @@
+{
+  "cards": [
+    {
+      "id": "nira",
+      "name": "Nira, Rainha do Rock",
+      "life": 66,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Escolha um aliado. No próximo turno, instâncias de dano que ele tomar não podem exceder 10.",
+          "effects": [
+            { "type": "applyStatus", "status": "damageCap", "value": 10, "duration": 1, "target": "chooseAlly" }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 1,
+          "text": "Conceda +5 de vida para cada aliado, incluindo os aliados que estiverem na sua mão.",
+          "effects": [
+            { "type": "buffMaxLife", "value": 5, "target": "allAlliesIncludingHand" }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo. Aumente isso em 1 para cada inimigo no campo e cada inimigo na mão do seu oponente.",
+          "effects": [
+            { "type": "dealDamage", "base": 5, "target": "chooseEnemy", "scaling": { "perUnit": 1, "count": "allEnemiesFieldAndHand" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "babawibby",
+      "name": "Babawibby o Mais Melhor de Bom",
+      "life": 50,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Crie uma Máquina de Guerra.",
+          "effects": [
+            { "type": "createToken", "tokenId": "maquina_de_guerra" }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Destrua uma Máquina de Guerra aliada para causar 20 de dano em um inimigo.",
+          "effects": [
+            { "type": "sacrificeToken", "tokenId": "maquina_de_guerra" },
+            { "type": "dealDamage", "base": 20, "target": "chooseEnemy" }
+          ]
+        },
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Recupere 8 de vida de todos os aliados.",
+          "effects": [
+            { "type": "heal", "base": 8, "target": "allAllies" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mariana",
+      "name": "Mariana, Tocada Pela Luz",
+      "life": 61,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 13 de dano em um inimigo. Ganhe essa quantidade de contadores da Proteção.",
+          "effects": [
+            { "type": "dealDamage", "base": 13, "target": "chooseEnemy" },
+            { "type": "gainCounter", "counter": "protecao", "value": 13 }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Gaste todos os seus contadores da Proteção para curar um aliado nessa mesma quantidade.",
+          "effects": [
+            { "type": "spendCounterToHeal", "counter": "protecao", "target": "chooseAlly" }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Um aliado se move imediatamente.",
+          "effects": [
+            { "type": "moveNow", "target": "chooseAlly" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rankorr",
+      "name": "Rankorr, Desafiante Dracônico",
+      "life": 83,
+      "role": "defensor",
+      "passive": "Quando um Escudo em mim expirar, ele explode causando a vida restante do mesmo como dano em todos os inimigos.",
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em todos os inimigos.",
+          "effects": [
+            { "type": "dealDamage", "base": 5, "target": "allEnemies" }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 1,
+          "text": "Eu ganho um Escudo de 30 de vida até o final do próximo turno.",
+          "effects": [
+            { "type": "applyShield", "value": 30, "duration": 2, "target": "self" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mularna",
+      "name": "Mularna, a Deusa da Guerra",
+      "life": 60,
+      "role": "defensor",
+      "passive": "Quando minha vida chegar em 40 e em 20 pela primeira vez, me conceda um Escudo de 20 de vida por 2 turnos.",
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em um inimigo. Se eu tiver um Escudo, dano causado por meu Suporte neste turno aumenta em 5.",
+          "effects": [
+            { "type": "dealDamage", "base": 8, "target": "chooseEnemy" },
+            { "type": "conditionalBuff", "condition": "selfHasShield", "buff": { "type": "damageBoost", "value": 5, "target": "allySuporte", "duration": 1 } }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cure 4 de vida de cada aliado. Se eu tiver um Escudo, use a Habilidade mais rápida do meu Atacante.",
+          "effects": [
+            { "type": "heal", "base": 4, "target": "allAllies" },
+            { "type": "conditionalTrigger", "condition": "selfHasShield", "trigger": "useCheapestAbility", "target": "allyAtacante" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reuben",
+      "name": "Reuben Mahalô",
+      "life": 60,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Cause 6 de dano no Defensor inimigo, 4 de dano no Atacante inimigo e 2 de dano no Suporte inimigo.",
+          "effects": [
+            { "type": "dealDamage", "base": 6, "target": "enemyDefensor" },
+            { "type": "dealDamage", "base": 4, "target": "enemyAtacante" },
+            { "type": "dealDamage", "base": 2, "target": "enemySuporte" }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 1,
+          "text": "Recupere 15 de vida de um aliado que ainda não se moveu.",
+          "effects": [
+            { "type": "heal", "base": 15, "target": "chooseAllyNotMovedYet" }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Eu Provoco o Defensor inimigo.",
+          "effects": [
+            { "type": "taunt", "target": "enemyDefensor", "source": "self" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ajax",
+      "name": "Ajax, o Ultra-Humano",
+      "life": 90,
+      "role": "defensor",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Eu e um inimigo lutamos. Eu causo 15 de dano nele e ele causa 15 de dano em mim.",
+          "effects": [
+            { "type": "dealDamage", "base": 15, "target": "chooseEnemy" },
+            { "type": "dealDamage", "base": 15, "target": "self" }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Cause 10 de dano em um inimigo. Ele Sangra, tomando exatamente 5 de dano no final de cada turno até receber um efeito de cura.",
+          "effects": [
+            { "type": "dealDamage", "base": 10, "target": "chooseEnemy" },
+            { "type": "applyStatus", "status": "sangramento", "value": 5, "duration": -1, "target": "lastTarget" }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 10 de dano em um inimigo. Repita se ele estiver Sangrando e repita novamente se a minha vida atual for 40 ou menos.",
+          "effects": [
+            { "type": "dealDamage", "base": 10, "target": "chooseEnemy" },
+            { "type": "conditionalRepeat", "condition": "targetHasStatus:sangramento" },
+            { "type": "conditionalRepeat", "condition": "selfLifeLTE:40" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "maquina_de_guerra",
+      "name": "Máquina de Guerra",
+      "life": 15,
+      "role": "token",
+      "passive": null,
+      "isToken": true,
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 8 de dano.",
+          "effects": [
+            { "type": "dealDamage", "base": 8, "target": "chooseEnemy" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grath",
+      "name": "Grath, Punho Furioso",
+      "life": 77,
+      "role": "atacante",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 15 de dano em um inimigo. Se a vida atual dele for 100 ou mais, cause mais 15 de dano.",
+          "effects": [
+            { "type": "dealDamage", "base": 15, "target": "chooseEnemy" },
+            { "type": "conditionalDamage", "condition": "targetLifeGTE:100", "base": 15, "target": "lastTarget" }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 4,
+          "text": "Cause 20 de dano em um inimigo. O alvo não pode utilizar habilidades neste turno.",
+          "effects": [
+            { "type": "dealDamage", "base": 20, "target": "chooseEnemy" },
+            { "type": "applyStatus", "status": "silenced", "duration": 1, "target": "lastTarget" }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 1,
+          "text": "Cause 10 de dano no Defensor inimigo. Se ele ganhar vida neste turno, eu Ganho a mesma quantidade.",
+          "effects": [
+            { "type": "dealDamage", "base": 10, "target": "enemyDefensor" },
+            { "type": "conditionalLifesteal", "condition": "targetHealedThisTurn", "target": "enemyDefensor", "healSelf": true }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahram",
+      "name": "Mahram, a Garça Branca",
+      "life": 70,
+      "role": "atacante",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Comece uma Chuva por 2 turnos. Enquanto ela estiver ativa, aliados se curam em 10 de vida no final do turno.",
+          "effects": [
+            { "type": "applyFieldEffect", "effect": "chuva", "duration": 2 }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Comece uma Tempestade de Areia por 2 turnos. Enquanto ela estiver ativa, inimigos perdem 10 de vida no final do turno.",
+          "effects": [
+            { "type": "applyFieldEffect", "effect": "tempestade_de_areia", "duration": 2 }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Cause 30 de dano a mim mesma. No final do próximo turno, cause 30 de dano em um inimigo e se isso matar ele, me cure totalmente.",
+          "effects": [
+            { "type": "dealDamage", "base": 30, "target": "self" },
+            { "type": "delayedEffect", "delay": 1, "effects": [
+              { "type": "dealDamage", "base": 30, "target": "chooseEnemy" },
+              { "type": "conditionalHeal", "condition": "lastTargetKilled", "target": "self", "value": "full" }
+            ]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kanth",
+      "name": "Kanth Sênior, Kanth Júnior e Kanth Neto",
+      "life": 25,
+      "role": "suporte",
+      "passive": "Quando eu for jogado crie duas cópias minhas.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Escolha um aliado, a próxima vez que ele causar dano em apenas um inimigo, aumente em 5.",
+          "effects": [
+            { "type": "applyStatus", "status": "nextSingleTargetDamageBoost", "value": 5, "duration": -1, "target": "chooseAlly" }
+          ]
+        },
+        {
+          "speed": 10,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo. Se uma cópia minha está morta, retorne-a a vida com apenas 5 de vida restante.",
+          "effects": [
+            { "type": "dealDamage", "base": 5, "target": "chooseEnemy" },
+            { "type": "reviveCopy", "cardId": "kanth", "life": 5 }
+          ]
+        }
+      ]
+    }
+  ]
+}
