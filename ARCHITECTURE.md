@@ -12,17 +12,20 @@
 - `js/core/game-flow.js` — declarations, bot decisions, combat resolution, turn progression, and win conditions.
 
 ## UI
-- `js/ui/render.js` — rendering helpers, card markup, declaration UI, combat board, and visual combat effects.
+- `js/ui/render.js` — rendering helpers, card markup, combat board, and visual combat effects.
+- `js/ui/declaration-flow.js` — focused one-card-at-a-time declaration interface and review flow.
 - `js/ui/deckbuilder-screen.js` — deck selection and initial-deployment screens.
 
 ## Feature systems
 - `js/systems/deckbuilder.js` — deckbuilder support system.
 - `js/systems/combat-presentation.js` — combat presentation enhancements.
-- `js/systems/audio.js` — synthesized music and sound effects.
+- `js/systems/audio.js` — synthesized music, sound effects, audio routing, and mute control.
 
 ## Styling
-- `css/base.css` — existing visual foundation and component styling.
-- `css/layout.css` — spacing, hierarchy, responsive composition, and artwork-ready layout rules.
+- `css/base.css` — foundational component styling.
+- `css/layout.css` — spacing, hierarchy, responsive composition, and layout rules.
+- `css/declaration.css` — declaration-flow layout primitives.
+- `css/modern.css` — current product-wide visual language, card-game surfaces, modern arena/deckbuilder/declaration presentation, target modal, and audio-control styling.
 
 ## Architectural rules
 - Card data belongs in `cards.json`.
