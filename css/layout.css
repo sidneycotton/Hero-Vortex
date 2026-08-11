@@ -1,6 +1,6 @@
 /* Hero Vortex layout and visual-density system.
    Base visual styling remains in css/base.css.
-   This file owns spacing, hierarchy, responsive composition, and future artwork slots. */
+   This file owns spacing, hierarchy, and responsive composition. */
 :root{
   --hv-space-1:4px;
   --hv-space-2:8px;
@@ -44,9 +44,6 @@
 .unit-statuses,.unit-counters{display:flex;flex-wrap:wrap;gap:5px}
 .status-chip,.counter-chip{font-size:.62rem;padding:4px 7px;border-radius:999px}
 .unit-passive-text,.ability-text,.hv-detail-ability-text{max-width:58ch}
-
-/* Artwork-ready contract: renderers expose data-art-src without requiring assets yet. */
-.unit-card[data-art-src],.hv-card-detail[data-art-src]{--hv-art-ready:1}
 
 @media (max-width:980px){
   #app{padding:18px 14px 44px}
