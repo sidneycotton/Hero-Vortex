@@ -1,3 +1,2 @@
-// Defensores — lote 01
-// Conteúdo preservado do antigo new-defenders.js.
-// A implementação original continua intacta para evitar regressões.
+// Entry point do lote 01 de Defensores.
+document.write('<script src="new-defenders.js?v=4"><\\/script>');
