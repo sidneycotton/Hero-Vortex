@@ -3,143 +3,39 @@
 .unit-card{
   position:relative;
   overflow:hidden;
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:10px;
   padding:18px;
   border-radius:20px;
-  background:
-    linear-gradient(145deg,rgba(29,39,54,.98),rgba(10,14,20,.99));
+  background:linear-gradient(145deg,rgba(29,39,54,.98),rgba(10,14,20,.99));
   border:1px solid rgba(255,255,255,.11);
   box-shadow:0 20px 42px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.045);
 }
-
-/* The card starts with the hero name — no competing role/star icons. */
-.unit-header-line{
-  display:block;
-  min-height:0;
-  padding:0 0 11px;
-  border-bottom:1px solid rgba(255,255,255,.07);
-}
+.unit-header-line{grid-column:1/-1;display:block;min-height:0;padding:0 0 11px;border-bottom:1px solid rgba(255,255,255,.07)}
 .unit-role-icon,.unit-heart{display:none!important}
-.unit-name{
-  display:block;
-  width:100%;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  font:700 clamp(1rem,1.8vw,1.2rem) var(--font-display);
-  letter-spacing:.025em;
-  color:#f7f8fb;
-}
-
-/* Life and shield become a dedicated information row. */
-.unit-lifebar{
-  order:2;
-  height:5px;
-  margin-top:-2px;
-}
-.unit-maxlife-sub{
-  order:3;
-  display:flex;
-  align-items:center;
-  min-height:30px;
-  margin:0;
-  padding:0 10px;
-  border-radius:9px;
-  background:rgba(255,255,255,.035);
-  color:#f2d9da;
-  font:700 .72rem var(--font-accent);
-  letter-spacing:.06em;
-}
+.unit-name{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 clamp(1rem,1.8vw,1.2rem) var(--font-display);letter-spacing:.025em;color:#f7f8fb}
+.unit-lifebar{grid-column:1/-1;order:2;height:5px;margin-top:-2px}
+.unit-maxlife-sub{order:3;grid-column:1;display:flex;align-items:center;min-height:30px;margin:0;padding:0 10px;border-radius:9px;background:rgba(255,255,255,.035);color:#f2d9da;font:700 .72rem var(--font-accent);letter-spacing:.06em}
 .unit-maxlife-sub::before{content:"VIDA  ";color:#9ca8b8;font-weight:700}
 .unit-maxlife-sub::after{content:"  ·  ESCUDO 0";color:#8ea6c4;font-weight:700}
 .unit-card:has(.unit-shield-panel) .unit-maxlife-sub::after{content:""}
-.unit-shield-panel{
-  order:4;
-  display:flex;
-  align-items:center;
-  gap:7px;
-  min-height:30px;
-  margin:0;
-  padding:0 10px;
-  border-radius:9px;
-  background:linear-gradient(90deg,rgba(89,142,220,.13),rgba(89,142,220,.045));
-  border:1px solid rgba(109,167,255,.2);
-  color:#b9d6ff;
-}
-.unit-shield-icon{display:grid;place-items:center;width:18px;height:18px}
-.unit-shield-icon .hv-svg-icon{width:17px;height:17px}
-.unit-shield-label{font:700 .66rem var(--font-accent);letter-spacing:.08em;color:#8ea6c4}
-.unit-shield-value{margin-left:auto;font:800 .9rem var(--font-accent);color:#d8e8ff}
-.unit-shield-duration{font:600 .62rem var(--font-accent);color:#7992b0}
-
-/* Statuses and counters are deliberately separated. */
-.unit-statuses,.unit-counters{
-  order:5;
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  padding-top:4px;
-}
-.unit-statuses:before,.unit-counters:before{
-  flex:0 0 100%;
-  font:800 .55rem var(--font-accent);
-  letter-spacing:.16em;
-}
-.unit-statuses:before{content:"DEBUFFS";color:#ff8d92}
-.unit-counters:before{content:"BUFFS";color:#82e1b0}
-.status-chip,.counter-chip{
-  border-radius:999px;
-  padding:5px 8px;
-  font:700 .62rem var(--font-accent);
-  line-height:1.1;
-}
-.status-chip{color:#ffc2c5;background:rgba(255,92,100,.08);border:1px solid rgba(255,92,100,.16)}
-.counter-chip{color:#bdf2d3;background:rgba(87,205,145,.08);border:1px solid rgba(87,205,145,.16)}
-
-/* Passive text remains available as information, but its decorative star/icon is gone. */
-.unit-passive-panel{order:6;margin-top:2px;padding:9px 10px;border-left:2px solid rgba(217,184,108,.45);background:rgba(255,255,255,.018);border-radius:0 9px 9px 0}
-.unit-passive-title{font:800 .56rem var(--font-accent);letter-spacing:.15em;color:#b9a36c}
-.unit-passive-title .hv-svg-icon{display:none}
-.unit-passive-text{margin-top:4px;color:#aab3c0;font-size:.74rem;line-height:1.38}
-
-.unit-abilities{order:7}
-
-/* The declaration focus card gets a stronger, cleaner silhouette. */
-.hv-declare-card-wrap .unit-card{
-  background:
-    radial-gradient(circle at 80% 8%,rgba(217,184,108,.08),transparent 34%),
-    linear-gradient(150deg,#1d2939,#0d131b 78%);
-  border-color:rgba(244,221,161,.16);
-  box-shadow:0 30px 70px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);
-}
+.unit-shield-panel{order:4;grid-column:2;display:flex;align-items:center;gap:7px;min-height:30px;margin:0;padding:0 10px;border-radius:9px;background:linear-gradient(90deg,rgba(89,142,220,.13),rgba(89,142,220,.045));border:1px solid rgba(109,167,255,.2);color:#b9d6ff}
+.unit-card:not(:has(.unit-shield-panel)) .unit-maxlife-sub{grid-column:1/-1}
+.unit-shield-icon{display:grid;place-items:center;width:18px;height:18px}.unit-shield-icon .hv-svg-icon{width:17px;height:17px}
+.unit-shield-label{font:700 .66rem var(--font-accent);letter-spacing:.08em;color:#8ea6c4}.unit-shield-value{margin-left:auto;font:800 .9rem var(--font-accent);color:#d8e8ff}.unit-shield-duration{font:600 .62rem var(--font-accent);color:#7992b0}
+.unit-statuses,.unit-counters{order:5;grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
+.unit-statuses:before,.unit-counters:before{flex:0 0 100%;font:800 .55rem var(--font-accent);letter-spacing:.16em}.unit-statuses:before{content:"DEBUFFS";color:#ff8d92}.unit-counters:before{content:"BUFFS";color:#82e1b0}
+.status-chip,.counter-chip{border-radius:999px;padding:5px 8px;font:700 .62rem var(--font-accent);line-height:1.1}.status-chip{color:#ffc2c5;background:rgba(255,92,100,.08);border:1px solid rgba(255,92,100,.16)}.counter-chip{color:#bdf2d3;background:rgba(87,205,145,.08);border:1px solid rgba(87,205,145,.16)}
+.unit-passive-panel{order:6;grid-column:1/-1;margin-top:2px;padding:9px 10px;border-left:2px solid rgba(217,184,108,.45);background:rgba(255,255,255,.018);border-radius:0 9px 9px 0}.unit-passive-title{font:800 .56rem var(--font-accent);letter-spacing:.15em;color:#b9a36c}.unit-passive-title .hv-svg-icon{display:none}.unit-passive-text{margin-top:4px;color:#aab3c0;font-size:.74rem;line-height:1.38}
+.unit-abilities{order:7;grid-column:1/-1}
+.hv-declare-card-wrap .unit-card{background:radial-gradient(circle at 80% 8%,rgba(217,184,108,.08),transparent 34%),linear-gradient(150deg,#1d2939,#0d131b 78%);border-color:rgba(244,221,161,.16);box-shadow:0 30px 70px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)}
 .hv-declare-card-wrap .unit-name{font-size:1.5rem}
 
 /* Initial-deployment cards: readable on phones instead of tiny thumbnails. */
 @media(max-width:720px){
-  .hv-initial-layout{display:block!important}
-  .hv-initial-panel{padding:14px;margin-bottom:14px}
-  .hv-initial-card{min-height:92px;padding:12px 13px;grid-template-columns:34px minmax(0,1fr) auto;gap:8px}
-  .hv-initial-options{grid-template-columns:1fr 1fr!important;gap:10px!important}
-  .hv-bot-note{display:none!important}
-  .hv-deck-catalog{padding:14px}
-  .hv-deck-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}
-  .hv-deck-card{min-height:180px;padding:13px}
-  .hv-deck-card-name{font-size:.9rem}
-  .hv-card-detail{padding:16px}
+  .hv-initial-layout{display:block!important}.hv-initial-panel{padding:14px;margin-bottom:14px}.hv-initial-card{min-height:92px;padding:12px 13px;grid-template-columns:34px minmax(0,1fr) auto;gap:8px}.hv-initial-options{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-bot-note{display:none!important}.hv-deck-catalog{padding:14px}.hv-deck-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-deck-card{min-height:180px;padding:13px}.hv-deck-card-name{font-size:.9rem}.hv-card-detail{padding:16px}
+  .hv-battle-stage .unit-card{min-height:0;padding:15px}.hv-battle-stage .unit-name{font-size:1rem}
 }
-@media(max-width:430px){
-  .hv-deck-grid{grid-template-columns:1fr!important}
-  .hv-deck-card{min-height:150px}
-  .hv-initial-options{grid-template-columns:1fr!important}
-}
-
-/* Battle cards breathe more on desktop and remain readable on small screens. */
-.hv-battle-stage .unit-card{min-height:250px;padding:18px}
-.hv-battle-stage .unit-name{font-size:1.05rem}
-.hv-battle-stage .unit-passive-panel{font-size:.8rem}
-@media(max-width:720px){
-  .hv-battle-stage .unit-card{min-height:0;padding:15px}
-  .hv-battle-stage .unit-name{font-size:1rem}
-}
+@media(max-width:430px){.hv-deck-grid{grid-template-columns:1fr!important}.hv-deck-card{min-height:150px}.hv-initial-options{grid-template-columns:1fr!important}}
+.hv-battle-stage .unit-card{min-height:250px;padding:18px}.hv-battle-stage .unit-name{font-size:1.05rem}.hv-battle-stage .unit-passive-panel{font-size:.8rem}
