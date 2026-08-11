@@ -50,7 +50,7 @@
   };
 
   function installCards() {
-    if (typeof CARD_DB === 'undefined') return false;
+    if (typeof CARD_DB === 'undefined' || !CARD_DB || Object.keys(CARD_DB).length === 0) return false;
     CARD_DB.kalany = KALANY;
     // Draak fica fora do deckbuilder: só existe quando Kalany se transforma.
     if (typeof render === 'function') render();
@@ -115,16 +115,16 @@
     if (state.turn === lastTurn) return;
     lastTurn = state.turn;
 
+    // Remove a proteção do turno anterior antes de aplicar a nova transformação.
+    for (const unit of allUnitsAll()) {
+      unit.statuses = unit.statuses.filter(s => s.status !== 'draakProtected');
+    }
+
     for (const unit of allUnitsAll()) {
       if (unit.dead || unit.cardId !== 'kalany') continue;
       unit.counters.fim = (unit.counters.fim || 0) + 1;
       logMsg(`${unit.name} recebe ${unit.counters.fim}/5 Contadores do Fim.`);
       if (unit.counters.fim >= 5) transformKalany(unit);
-    }
-
-    // A proteção de Draak dura somente o turno em que ele se transforma.
-    for (const unit of allUnitsAll()) {
-      unit.statuses = unit.statuses.filter(s => s.status !== 'draakProtected');
     }
   }
 
