@@ -25,24 +25,49 @@ function makeUnit(cardId, ownerIdx) {
   };
 }
 
+// Vida efetiva para REGRAS: vida real + escudo atual.
+// A interface mostra vida e escudo separadamente.
+function getCurrentLife(unit) {
+  if (!unit) return 0;
+  return Math.max(0, (Number(unit.life) || 0) + (unit.shield ? (Number(unit.shield.value) || 0) : 0));
+}
+
+function triggerUnitPlayed(unit) {
+  if (!unit || unit.dead) return;
+
+  // Kanth: ser colocado em campo conta como "jogar" e dispara a passiva.
+  // As cópias criadas não disparam novamente a passiva, evitando loop infinito.
+  if (unit.cardId === 'kanth') {
+    const owner = ownerOf(unit);
+    for (let i = 0; i < 2; i++) {
+      const copy = makeUnit('kanth', unit.owner);
+      copy.justSpawned = true;
+      owner.extraUnits.push(copy);
+    }
+    logMsg(`${unit.name} entra em campo e cria duas cópias de Kanth.`);
+  }
+}
+
 // slots[role] = { active: unit|null, bench: [cardId,...] } — bench = reservas ainda não jogadas
-function buildDeck(pickByRole, ownerIdx) {
+function buildDeck(pickByRole, ownerIdx, initialChoices = {}) {
   const slots = {};
   for (const role of ROLES) {
-    const ids = pickByRole[role]; // array de 2 cardIds
-    const active = makeUnit(ids[0], ownerIdx);
-    slots[role] = { active, bench: [ids[1]] };
+    const ids = pickByRole[role];
+    const selectedId = initialChoices[role];
+    const active = makeUnit(selectedId, ownerIdx);
+    const bench = ids.filter(id => id !== selectedId);
+    slots[role] = { active, bench };
   }
   return slots;
 }
 
-function initGame(p1Picks, p2Picks, vsBot) {
+function initGame(p1Picks, p2Picks, vsBot, initialChoices) {
   state = {
     turn: 1,
     vsBot,
     players: [
-      { name: 'Jogador 1', slots: buildDeck(p1Picks, 0), extraUnits: [], fieldEffects: {} },
-      { name: vsBot ? 'Bot' : 'Jogador 2', slots: buildDeck(p2Picks, 1), extraUnits: [], fieldEffects: {} },
+      { name: 'Jogador 1', slots: buildDeck(p1Picks, 0, initialChoices[0]), extraUnits: [], fieldEffects: {} },
+      { name: vsBot ? 'Bot' : 'Jogador 2', slots: buildDeck(p2Picks, 1, initialChoices[1]), extraUnits: [], fieldEffects: {} },
     ],
     log: [],
     phase: 'declare',
@@ -54,6 +79,12 @@ function initGame(p1Picks, p2Picks, vsBot) {
     resolutionIdx: 0,
     winner: null,
   };
+
+  // Entrar em campo no começo também conta como jogar a carta.
+  for (const p of state.players) {
+    for (const role of ROLES) triggerUnitPlayed(p.slots[role].active);
+  }
+
   logMsg(`Partida iniciada! Fase de declaração — Turno ${state.turn}.`);
   startDeclarePhaseForPlayer(0);
 }
@@ -191,8 +222,8 @@ function renderTargetOverlay() {
         <div class="hv-target-option ${wantsAlly ? 'hv-ally-target' : ''}" data-uid="${u.uid}" tabindex="0" role="button">
           <div class="hv-target-role">${ROLE_ICON[u.role] || ''}</div>
           <div class="hv-target-name">${u.name}</div>
-          <div class="hv-target-life">❤️ ${Math.max(0,u.life)} / ${u.maxLife}${u.shield ? ` 🛡️${u.shield.value}` : ''}</div>
-          <div class="hv-target-lifebar"><div class="hv-target-lifebar-fill" style="width:${Math.max(0,(u.life/u.maxLife)*100)}%"></div></div>
+          <div class="hv-target-life">❤️ ${Math.max(0, u.life)} / ${u.maxLife}${u.shield && u.shield.value > 0 ? ` · 🛡️ ${u.shield.value}` : ''}</div>
+          <div class="hv-target-lifebar"><div class="hv-target-lifebar-fill" style="width:${Math.min(100, Math.max(0,(u.life/u.maxLife)*100))}%"></div></div>
         </div>
       `).join('')}
     </div>
@@ -258,7 +289,7 @@ function declareBot(playerIdx) {
         ? enemyTeamOf(unit).filter(u => !u.dead)
         : allyTeamOf(unit).filter(u => !u.dead);
       if (pool.length) {
-        pool.sort((a, b) => a.life - b.life);
+        pool.sort((a, b) => getCurrentLife(a) - getCurrentLife(b));
         targetUid = pool[0].uid;
       }
     }
@@ -279,7 +310,7 @@ function beginResolution() {
       if (!unit || unit.dead) continue;
       const def = CARD_DB[unit.cardId];
       const ability = def.abilities[decl.abilityIdx];
-      queue.push({ uid, abilityIdx: decl.abilityIdx, targetUid: decl.targetUid, speed: ability.speed, life: unit.life });
+      queue.push({ uid, abilityIdx: decl.abilityIdx, targetUid: decl.targetUid, speed: ability.speed, life: getCurrentLife(unit) });
     }
   }
   queue.sort((a, b) => (a.speed - b.speed) || (a.life - b.life));
@@ -289,7 +320,7 @@ function beginResolution() {
   beginAutoResolution();
 }
 
-const HV_STEP_DELAY = 1550; // ms entre ações na fila de resolução automática
+const HV_STEP_DELAY = 1550;
 
 function snapshotUnits() {
   const map = {};
@@ -417,13 +448,14 @@ function checkDeaths() {
       const slot = p.slots[role];
       if (slot.active && slot.active.life <= 0 && !slot.active.replaced) {
         slot.active.dead = true;
-        slot.active.replaced = true; // marca que este cadáver já foi processado (não substitui de novo)
+        slot.active.replaced = true;
         logMsg(`${slot.active.name} foi derrotado!`);
         if (slot.bench.length > 0) {
           const nextId = slot.bench.shift();
           slot.active = makeUnit(nextId, state.players.indexOf(p));
           slot.active.justSpawned = true;
           logMsg(`${p.name} coloca ${slot.active.name} em campo!`);
+          triggerUnitPlayed(slot.active);
         } else {
           slot.active = null;
           logMsg(`${p.name} não tem mais reservas para ${roleLabel(role)} — slot vazio.`);
@@ -531,179 +563,48 @@ const ROLE_ICON = { defensor: '🛡️', atacante: '⚔️', suporte: '✨', tok
 function unitCardHTML(u, opts = {}) {
   const { selectable, showAbilities, abilitiesLocked } = opts;
   const def = CARD_DB[u.cardId] || {};
-
   const deadClass = u.dead ? 'unit-dead' : '';
   const selClass = selectable ? 'unit-selectable' : '';
   const spawnClass = u.justSpawned ? 'hv-spawned' : '';
-
   if (u.justSpawned) u.justSpawned = false;
 
-  const pct = Math.max(
-    0,
-    Math.min(100, (u.life / u.maxLife) * 100)
-  );
-
-  // Current shield
-  const shieldValue = u.shield
-    ? Math.max(0, Number(u.shield.value) || 0)
-    : 0;
-
-  const shieldDuration = u.shield
-    ? Math.max(0, Number(u.shield.duration) || 0)
-    : 0;
-
-  // Passive ability from cards.json
-  const passiveText =
-    typeof def.passive === 'string'
-      ? def.passive.trim()
-      : '';
+  // Interface: vida e escudo ficam separados. A soma só é usada pelas regras.
+  const lifeValue = Math.max(0, Number(u.life) || 0);
+  const pct = Math.max(0, Math.min(100, (lifeValue / u.maxLife) * 100));
+  const shieldValue = u.shield ? Math.max(0, Number(u.shield.value) || 0) : 0;
+  const shieldDuration = u.shield ? Math.max(0, Number(u.shield.duration) || 0) : 0;
+  const passiveText = typeof def.passive === 'string' ? def.passive.trim() : '';
 
   return `
-    <div
-      class="unit-card ${deadClass} ${selClass} ${spawnClass}"
-      data-uid="${u.uid}"
-      onclick="handleUnitClick('${u.uid}')"
-    >
-
-      <div
-        class="hv-float-layer"
-        data-float-for="${u.uid}"
-      ></div>
-
+    <div class="unit-card ${deadClass} ${selClass} ${spawnClass}" data-uid="${u.uid}" onclick="handleUnitClick('${u.uid}')">
+      <div class="hv-float-layer" data-float-for="${u.uid}"></div>
       <div class="unit-header-line">
-
-        <span
-          class="unit-heart"
-          title="Vida"
-        >
-          ❤️
-          <span class="unit-heart-value">
-            ${Math.max(0, u.life)}
-          </span>
-        </span>
-
-        <span
-          class="unit-role-icon role-${u.role}"
-          title="${roleLabel(u.role)}"
-        >
-          ${ROLE_ICON[u.role] || ''}
-        </span>
-
-        <span class="unit-name">
-          ${u.name}
-        </span>
-
+        <span class="unit-heart" title="Vida">❤️<span class="unit-heart-value">${lifeValue}</span></span>
+        <span class="unit-role-icon role-${u.role}" title="${roleLabel(u.role)}">${ROLE_ICON[u.role] || ''}</span>
+        <span class="unit-name">${u.name}</span>
       </div>
+      <div class="unit-lifebar"><div class="unit-lifebar-fill" style="width:${pct}%"></div></div>
+      <div class="unit-maxlife-sub">${lifeValue} / ${u.maxLife}</div>
 
-      <div class="unit-lifebar">
-        <div
-          class="unit-lifebar-fill"
-          style="width:${pct}%"
-        ></div>
-      </div>
+      ${shieldValue > 0 ? `
+        <div class="unit-shield-panel" title="Escudo atual — separado da vida e não é recuperado por cura">
+          <span class="unit-shield-icon">🛡️</span>
+          <span class="unit-shield-label">ESCUDO</span>
+          <strong class="unit-shield-value">${shieldValue}</strong>
+          ${shieldDuration > 0 ? `<span class="unit-shield-duration">${shieldDuration} turno${shieldDuration === 1 ? '' : 's'}</span>` : ''}
+        </div>
+      ` : ''}
 
-      <div class="unit-maxlife-sub">
-        ${Math.max(0, u.life)} / ${u.maxLife}
-      </div>
+      ${passiveText ? `
+        <div class="unit-passive-panel">
+          <div class="unit-passive-title">✦ PASSIVA</div>
+          <div class="unit-passive-text">${passiveText}</div>
+        </div>
+      ` : ''}
 
-      ${
-        shieldValue > 0
-          ? `
-            <div
-              class="unit-shield-panel"
-              title="Escudo atual"
-            >
-              <span class="unit-shield-icon">
-                🛡️
-              </span>
-
-              <span class="unit-shield-label">
-                ESCUDO
-              </span>
-
-              <strong class="unit-shield-value">
-                ${shieldValue}
-              </strong>
-
-              ${
-                shieldDuration > 0
-                  ? `
-                    <span class="unit-shield-duration">
-                      ${shieldDuration}
-                      turno${shieldDuration === 1 ? '' : 's'}
-                    </span>
-                  `
-                  : ''
-              }
-            </div>
-          `
-          : ''
-      }
-
-      ${
-        passiveText
-          ? `
-            <div class="unit-passive-panel">
-
-              <div class="unit-passive-title">
-                ✦ PASSIVA
-              </div>
-
-              <div class="unit-passive-text">
-                ${passiveText}
-              </div>
-
-            </div>
-          `
-          : ''
-      }
-
-      ${
-        u.statuses.length
-          ? `
-            <div class="unit-statuses">
-              ${u.statuses
-                .map(
-                  s =>
-                    `<span class="status-chip">
-                      ${statusLabel(s)}
-                    </span>`
-                )
-                .join('')}
-            </div>
-          `
-          : ''
-      }
-
-      ${
-        Object.keys(u.counters).length
-          ? `
-            <div class="unit-counters">
-              ${Object.entries(u.counters)
-                .map(
-                  ([k, v]) =>
-                    `<span class="counter-chip">
-                      ${k}: ${v}
-                    </span>`
-                )
-                .join('')}
-            </div>
-          `
-          : ''
-      }
-
-      ${
-        u.dead
-          ? '<div class="unit-fallen">💀 Derrotado</div>'
-          : (
-              showAbilities
-                ? abilitiesHTML(u, {
-                    locked: abilitiesLocked
-                  })
-                : ''
-            )
-      }
-
+      ${u.statuses.length ? `<div class="unit-statuses">${u.statuses.map(s => `<span class="status-chip">${statusLabel(s)}</span>`).join('')}</div>` : ''}
+      ${Object.keys(u.counters).length ? `<div class="unit-counters">${Object.entries(u.counters).map(([k,v]) => `<span class="counter-chip">${k}: ${v}</span>`).join('')}</div>` : ''}
+      ${u.dead ? '<div class="unit-fallen">💀 Derrotado</div>' : (showAbilities ? abilitiesHTML(u, { locked: abilitiesLocked }) : '')}
     </div>
   `;
 }
@@ -726,7 +627,7 @@ function abilitiesHTML(u, opts = {}) {
 }
 
 function handleUnitClick(uid) {
-  // Alvos agora são escolhidos pelo overlay dedicado (renderTargetOverlay).
+  // Alvos agora são escolhidos pelo overlay dedicado.
 }
 
 function render() {
@@ -773,7 +674,6 @@ function renderDeclarePhase() {
 
   const extraRows = p.extraUnits.filter(u => !u.dead).map(rowFor).join('');
 
-  // Time inimigo — visível sempre, e clicável como alvo quando estamos escolhendo um alvo de dano
   const enemyIdx = 1 - playerIdx;
   const enemy = state.players[enemyIdx];
   const enemyUnitHTML = (u) => {
@@ -847,14 +747,11 @@ function renderResolvePhase() {
     <div class="topbar">
       <div class="turn-indicator">Turno ${state.turn} — Resolvendo fila de ações${done ? ' — concluído' : ''}</div>
     </div>
-
     ${bannerHTML}
-
     <div class="queue-panel">
       <div class="log-title">Fila de Resolução (ordem de velocidade)</div>
       ${queueHTML}
     </div>
-
     <div class="board">
       <div class="player-zone">
         <div class="zone-title">${p0.name} ${activeFieldEffects(p0)}</div>
@@ -872,7 +769,6 @@ function renderResolvePhase() {
         </div>
       </div>
     </div>
-
     <div class="log-panel">
       <div class="log-title">Registro de Batalha</div>
       <div class="log-entries">
@@ -880,7 +776,6 @@ function renderResolvePhase() {
       </div>
     </div>
   `;
-
   applyCombatAnimations();
 }
 
@@ -898,7 +793,6 @@ function applyCombatAnimations() {
     const floatLayer = document.querySelector(`.hv-float-layer[data-float-for="${uid}"]`);
     const lifeDelta = a.life - b.life;
     const shieldDelta = a.shieldValue - b.shieldValue;
-
     if (diff.newlyDead.includes(uid) && el) {
       el.classList.add('hv-just-died');
     } else if (lifeDelta < 0 && el) {
@@ -961,6 +855,11 @@ function renderTeamSelect() {
   let p1Picks = { defensor: [], atacante: [], suporte: [] };
   let p2Picks = { defensor: [], atacante: [], suporte: [] };
   let showConfig = false;
+  let showInitialDeploy = false;
+  let initialChoices = [
+    { defensor: null, atacante: null, suporte: null },
+    { defensor: null, atacante: null, suporte: null }
+  ];
 
   function pickCardHTML(id, list) {
     const c = CARD_DB[id];
@@ -997,6 +896,74 @@ function renderTeamSelect() {
     document.getElementById('hvEnterBtn').onclick = () => { showConfig = true; draw(); };
   }
 
+  function drawInitialDeploy() {
+    const ready1 = ROLES.every(r => !!initialChoices[0][r]);
+
+    if (vsBot) {
+      for (const role of ROLES) {
+        if (!initialChoices[1][role]) {
+          const ids = p2Picks[role];
+          initialChoices[1][role] = ids[Math.floor(Math.random() * ids.length)];
+        }
+      }
+    }
+
+    const ready2 = ROLES.every(r => !!initialChoices[1][r]);
+
+    const playerPanel = (playerIdx, picks) => `
+      <div class="setup-col">
+        <h2>${playerIdx === 0 ? 'Jogador 1' : 'Jogador 2'} — escolha quem começa</h2>
+        <p class="setup-sub">Escolha 1 dos 2 personagens de cada classe. Escolher aqui conta como jogar a carta.</p>
+        ${ROLES.map(role => `
+          <div class="role-block">
+            <h3>${roleLabel(role)} — escolha 1</h3>
+            <div class="pick-grid" data-deploy-player="${playerIdx}" data-deploy-role="${role}">
+              ${picks[role].map(id => {
+                const c = CARD_DB[id];
+                const selected = initialChoices[playerIdx][role] === id;
+                return `<div class="pick-card ${selected ? 'pick-selected' : ''}" data-id="${id}">
+                  <div class="pick-name">${c.name}</div>
+                  <div class="pick-meta">${c.life} vida${c.passive ? ' · ✦ Passiva' : ''}</div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    app.innerHTML = `
+      <div class="setup-screen hv-config-panel">
+        <button class="hv-back-link" id="hvDeployBackBtn">← voltar</button>
+        <h1 class="game-title">ESCOLHER <span class="game-title-accent">TIME INICIAL</span></h1>
+        <p class="setup-sub">As cartas não escolhidas ficam na reserva. Quando uma carta for colocada em campo depois, isso também conta como jogar a carta.</p>
+        <div class="setup-columns">
+          ${playerPanel(0, p1Picks)}
+          ${vsBot ? `<div class="setup-col"><h2>Bot — escolha automática</h2><p class="setup-sub">O Bot escolhe aleatoriamente uma carta de cada classe.</p></div>` : playerPanel(1, p2Picks)}
+        </div>
+        <button class="btn-primary btn-start" id="deployStartBtn" ${ready1 && ready2 ? '' : 'disabled'}>Entrar em Campo</button>
+      </div>
+    `;
+
+    document.getElementById('hvDeployBackBtn').onclick = () => { showInitialDeploy = false; drawConfig(); };
+
+    document.querySelectorAll('[data-deploy-player]').forEach(grid => {
+      const playerIdx = Number(grid.dataset.deployPlayer);
+      const role = grid.dataset.deployRole;
+      grid.querySelectorAll('.pick-card').forEach(el => {
+        el.onclick = () => {
+          initialChoices[playerIdx][role] = el.dataset.id;
+          drawInitialDeploy();
+        };
+      });
+    });
+
+    document.getElementById('deployStartBtn').onclick = () => {
+      if (!ready1 || !ready2) return;
+      initGame(p1Picks, p2Picks, vsBot, initialChoices);
+    };
+  }
+
   function drawConfig() {
     const p1Ready = ROLES.every(r => p1Picks[r].length === 2);
     const p2Ready = vsBot || ROLES.every(r => p2Picks[r].length === 2);
@@ -1005,7 +972,7 @@ function renderTeamSelect() {
       <div class="setup-screen hv-config-panel">
         <button class="hv-back-link" id="hvBackBtn">← voltar</button>
         <h1 class="game-title">HERO <span class="game-title-accent">VORTEX</span></h1>
-        <p class="setup-sub">Cada jogador monta um baralho com 2 cartas de cada classe (Defensor, Atacante, Suporte). A primeira de cada classe entra em campo; a segunda fica de reserva.</p>
+        <p class="setup-sub">Cada jogador monta um baralho com 2 cartas de cada classe (Defensor, Atacante, Suporte). Depois você escolhe qual das 2 de cada classe será jogada para formar o time inicial.</p>
 
         <div class="mode-toggle">
           <button class="btn-secondary ${vsBot ? 'mode-active' : ''}" id="modeBotBtn">🤖 Jogar contra o Bot</button>
@@ -1036,7 +1003,7 @@ function renderTeamSelect() {
             `).join('')}
           </div>
         </div>
-        <button class="btn-primary btn-start" id="startBtn" ${(p1Ready && p2Ready) ? '' : 'disabled'}>Começar Partida</button>
+        <button class="btn-primary btn-start" id="startBtn" ${(p1Ready && p2Ready) ? '' : 'disabled'}>Continuar para Escolha Inicial</button>
       </div>
     `;
 
@@ -1069,12 +1036,19 @@ function renderTeamSelect() {
           p2Picks[role] = shuffled.slice(0, 2);
         }
       }
-      initGame(p1Picks, p2Picks, vsBot);
+      initialChoices = [
+        { defensor: null, atacante: null, suporte: null },
+        { defensor: null, atacante: null, suporte: null }
+      ];
+      showInitialDeploy = true;
+      drawInitialDeploy();
     };
   }
 
   function draw() {
-    if (showConfig) drawConfig(); else drawSplash();
+    if (showInitialDeploy) drawInitialDeploy();
+    else if (showConfig) drawConfig();
+    else drawSplash();
   }
 
   draw();
