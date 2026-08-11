@@ -1,11 +1,11 @@
 # Hero Vortex JavaScript architecture
 
-`app.js` is the bootstrap and shared runtime entrypoint.
+`js/app.js` is the application bootstrap and shared runtime entrypoint.
 
-`core/` contains state and turn/phase flow.
+`js/core/` contains game rules, state, and turn/phase flow.
 
-`ui/` contains rendering and player-facing setup screens.
+`js/ui/` contains rendering and player-facing setup screens.
 
-Root feature modules remain separate when they represent complete systems.
+`js/systems/` contains complete independent systems such as audio, deckbuilding support, and combat presentation.
 
-Hero Vortex intentionally uses regular script loading for compatibility with the existing global API.
+All JavaScript belongs under `js/`; the folder name communicates responsibility without relying on patch/fix filenames.
