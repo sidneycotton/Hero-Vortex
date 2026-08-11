@@ -15,12 +15,20 @@ const Engine = (() => {
     if (unit.life === 0) unit.dead = true;
   }
 
-  function applyDamage(unit, amount, log) {
+  function applyDamage(unit, amount, log, source = null) {
     if (!unit || unit.dead) return 0;
     let dmg = amount;
 
     const cap = unit.statuses.find(s => s.status === 'damageCap');
     if (cap) dmg = Math.min(dmg, cap.value);
+
+    // Kalany: neste turno, dano causado por inimigos contra ela é reduzido em 3.
+    if (source && source.owner !== unit.owner) {
+      const reductions = unit.statuses
+        .filter(s => s.status === 'enemyAttackDamageReduction')
+        .reduce((sum, s) => sum + (Number(s.value) || 0), 0);
+      if (reductions > 0) dmg = Math.max(0, dmg - reductions);
+    }
 
     // Escudo absorve primeiro. Cura nunca recupera o escudo.
     if (unit.shield && unit.shield.value > 0) {
@@ -123,7 +131,7 @@ const Engine = (() => {
             finalAmount += boost.value;
             ctx.caster.statuses = ctx.caster.statuses.filter(s => s !== boost);
           }
-          applyDamage(t, finalAmount, log);
+          applyDamage(t, finalAmount, log, ctx.caster);
           ctx.lastTarget = t;
         }
         break;
@@ -210,7 +218,7 @@ const Engine = (() => {
       case 'conditionalDamage': {
         if (checkCondition(eff.condition, ctx)) {
           const targets = resolveTargets(eff.target, ctx);
-          for (const t of targets) applyDamage(t, eff.base, log);
+          for (const t of targets) applyDamage(t, eff.base, log, ctx.caster);
         }
         break;
       }
