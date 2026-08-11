@@ -12,7 +12,7 @@
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const animationDone=a=>a?.finished?.catch(()=>{})||Promise.resolve();
   function actionCue(uid,k){const e=el(uid);if(!e)return Promise.resolve();e.querySelector('.hv-action-cue')?.remove();const cue=document.createElement('div');cue.className=`hv-action-cue hv-action-${k}`;cue.innerHTML=`<span>${svg(k)}</span><b>${labels[k]||'AÇÃO'}</b>`;e.appendChild(cue);return wait(ACTION_CUE_MS).then(()=>cue.remove());}
-  function glyph(x,y,k,cls='',life=1900){const g=document.createElement('div');g.className=`hv-combat-glyph hv-combat-${k} ${cls}`;g.style.left=`${x}px`;g.style.top=`${y}px`;g.innerHTML=svg(k);layer().appendChild(g);setTimeout(()=>g.remove(),life);return g}
+  function glyph(x,y,k,cls='',life=1900){const g=document.createElement('div');g.className=`hv-combat-glyph hv-combat-${k} ${cls}`;g.style.left=`${x}px`;g.style.top=`${y}px`;g.innerHTML=svg(k);layer().appendChild(g);setTimeout(()=>g.remove(),life);return g;}
   function targetIds(effect,diff){if(diff.targetUid)return[diff.targetUid];const groups=['allEnemies','allEnemiesFieldAndHand','allAllies','allAlliesIncludingHand','enemyDefensor','enemyAtacante','enemySuporte','allyAtacante','allyDefensor'];if(groups.includes(effect?.target))return Object.keys(diff.after||{}).filter(uid=>diff.after[uid]&&!diff.after[uid].dead);if(effect?.target==='self')return[diff.casterUid];if(effect?.target==='lastTarget')return diff.targetUid?[diff.targetUid]:[];return[]}
 
   async function singleStrike(casterUid,targetUid){
@@ -49,17 +49,33 @@
   let queuedRender=false;
   const originalRender=window.render;
   if(typeof originalRender==='function')window.render=function(){if(window.HVCombatBusy){queuedRender=true;return;}return originalRender.apply(this,arguments)};
-  const originalAutoResolveStep=window.autoResolveStep;
-  if(typeof originalAutoResolveStep==='function')window.autoResolveStep=function(){if(window.HVCombatBusy&&window.HVCombatPromise)return window.HVCombatPromise.then(()=>originalAutoResolveStep.apply(this,arguments));return originalAutoResolveStep.apply(this,arguments)};
 
   async function playCombatSequence(diff){
-    if(!diff)return 0;
+    if(!diff)return;
     const caster=getUnit(diff.casterUid),ability=CARD_DB[caster?.cardId]?.abilities?.[diff.abilityIdx];
-    if(!caster||!ability)return 0;
-    const run=(async()=>{await actionCue(caster.uid,kindOf(ability.effects?.[0]));await wait(PRE_ACTION_MS);for(const effect of ability.effects||[]){await animateEffect(effect,diff);await wait(STEP_MS)}await wait(GAP_MS);})();
-    window.HVCombatBusy=true;window.HVCombatPromise=run;
-    try{return await run}finally{window.HVCombatBusy=false;window.HVCombatPromise=null;if(queuedRender){queuedRender=false;window.render?.()}}
+    if(!caster||!ability)throw new Error(`Combat presentation: caster/ability inválido (${diff?.casterUid}/${diff?.abilityIdx}).`);
+    const run=(async()=>{
+      await actionCue(caster.uid,kindOf(ability.effects?.[0]));
+      await wait(PRE_ACTION_MS);
+      for(const effect of ability.effects||[]){await animateEffect(effect,diff);await wait(STEP_MS)}
+      await wait(GAP_MS);
+    })();
+    window.HVCombatBusy=true;
+    window.HVCombatPromise=run;
+    try{return await run}
+    finally{
+      window.HVCombatBusy=false;
+      window.HVCombatPromise=null;
+      if(queuedRender){queuedRender=false;window.render?.()}
+    }
   }
+
   window.playCombatSequence=playCombatSequence;
+
+  // game-flow.js is now the sole owner of resolution sequencing. These flags
+  // prevent the legacy rules-fixes wrapper from installing a second scheduler.
+  window.__hvPresentationWrapped=true;
+  window.__hvAutoResolveWrapped=true;
+
   window.HVCombatDiagnostics={locate(uid){return point(uid)},preview(uid,targetUid,kind='damage'){if(kind==='damage'&&uid&&targetUid)singleStrike(uid,targetUid);else{const p=point(uid);if(p)glyph(p.x,p.y,kind,'hv-combat-diagnostic')}},describe(){return{playCombatSequence:typeof window.playCombatSequence==='function',cards:document.querySelectorAll('.unit-card[data-uid]').length,fxLayer:!!document.getElementById('hvFxLayer')}}};
 })();
