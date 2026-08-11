@@ -150,6 +150,7 @@ async function autoResolveStep(){
   if(!ability) throw new Error(`Combat resolution: habilidade ${item.abilityIdx} não encontrada para ${caster.cardId}.`);
 
   const before=snapshotUnits();
+  const preexistingDead=new Set(allUnitsAll().filter(u=>u.dead).map(u=>u.uid));
   const sourceEl=document.querySelector(`.unit-card[data-uid="${caster.uid}"]`);
   const geometry={source:null,targets:{}};
   if(sourceEl){const r=sourceEl.getBoundingClientRect();geometry.source={left:r.left,top:r.top,width:r.width,height:r.height};}
@@ -168,7 +169,7 @@ async function autoResolveStep(){
     checkDeaths();
     checkWinner();
     const after=snapshotUnits();
-    state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead).map(u=>u.uid),geometry};
+    state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead&&!preexistingDead.has(u.uid)).map(u=>u.uid),geometry};
     render();
 
     if(typeof playCombatSequence!=='function') throw new Error('Combat resolution: playCombatSequence não está disponível.');
@@ -178,7 +179,6 @@ async function autoResolveStep(){
     state.hvDiff=null;
     if(state.winner!==null){finishResolutionPhase();return;}
     render();
-    await new Promise(resolve=>setTimeout(resolve,0));
     await autoResolveStep();
   } catch(error) {
     console.error('[Hero Vortex] Combat resolution interrupted:',error);
@@ -189,10 +189,12 @@ async function autoResolveStep(){
     throw error;
   }
 }
-function beginAutoResolution(){state.hvActiveCast=null;state.hvDiff=null;render();setTimeout(()=>autoResolveStep().catch(()=>{}),500);}
+function beginAutoResolution(){state.hvActiveCast=null;state.hvDiff=null;render();setTimeout(autoResolveStep,500);}
 function executeAbility(caster,abilityIdx,targetUid){
-  const def=CARD_DB[caster.cardId],ability=def.abilities[abilityIdx],chosenTarget=targetUid?getUnit(targetUid):null,allyTeam=allyTeamOf(caster),enemyTeam=enemyTeamOf(caster);
+  const def=CARD_DB[caster.cardId];
+  const ability=def?.abilities?.[abilityIdx];
   if(!def||!ability) throw new Error(`executeAbility: definição ausente para ${caster?.cardId} / habilidade ${abilityIdx}.`);
+  const chosenTarget=targetUid?getUnit(targetUid):null,allyTeam=allyTeamOf(caster),enemyTeam=enemyTeamOf(caster);
   const ctx={caster,chosenTarget,allyTeam,enemyTeam,enemyField:enemyTeam,enemyHand:[],lastTarget:chosenTarget,
     onCreateToken:tokenId=>{const tok=makeUnit(tokenId,caster.owner);tok.justSpawned=true;ownerOf(caster).extraUnits.push(tok);logMsg(`${ownerOf(caster).name} cria uma ${CARD_DB[tokenId].name}.`);},
     onSacrificeToken:(tokenId,log)=>{const list=ownerOf(caster).extraUnits,idx=list.findIndex(u=>u.cardId===tokenId&&!u.dead);if(idx>=0){list[idx].dead=true;list[idx].life=0;log(`${list[idx].name} é destruída como custo da habilidade.`)}else log(`Nenhuma Máquina de Guerra disponível para sacrificar!`);},
