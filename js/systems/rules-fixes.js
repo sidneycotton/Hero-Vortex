@@ -1,6 +1,6 @@
 /* Hero Vortex — turn semantics and missing core rule execution.
-   Keeps cards.json declarative while filling the mechanics that the legacy
-   engine previously logged as "manual" placeholders. */
+   Keeps cards.json declarative while filling mechanics that the legacy engine
+   previously logged as manual placeholders. */
 (() => {
   if (window.__hvRulesFixesInstalled) return;
   window.__hvRulesFixesInstalled = true;
@@ -11,17 +11,17 @@
     state.hvForcedActions ||= new Set();
     state.hvSkipResolution ||= new Set();
     state.hvActedThisTurn ||= new Set();
-    for (const p of state.players || []) p.handMaxLifeBonus ||= {};
+    for (const p of state.players || []) {
+      p.handMaxLifeBonus ||= {};
+      p.handLifeGainThisTurn ||= {};
+    }
   };
 
   const handIds = playerIdx => {
     const player = state?.players?.[playerIdx];
     if (!player?.slots) return [];
     const ids = [];
-    for (const role of (window.ROLES || [])) {
-      const bench = player.slots[role]?.bench || [];
-      ids.push(...bench);
-    }
+    for (const role of (window.ROLES || [])) ids.push(...(player.slots[role]?.bench || []));
     return ids;
   };
 
@@ -59,7 +59,7 @@
     return true;
   }
 
-  function forceDeclaredMove(unit) {
+  const forceDeclaredMove = unit => {
     ensureTurnState();
     if (!unit || unit.dead || state.hvActedThisTurn.has(unit.uid)) return false;
     const declaration = state.declarations?.[unit.owner]?.[unit.uid];
@@ -67,30 +67,28 @@
     const fastest = chooseFastestAbility(unit);
     if (!fastest) return false;
     return triggerAbilityNow(unit, fastest.idx, chooseTargetForAbility(unit, fastest.ab), true);
-  }
+  };
 
-  function useFastestAbility(unit) {
+  const useFastestAbility = unit => {
     ensureTurnState();
     if (!unit || unit.dead) return false;
     const fastest = chooseFastestAbility(unit);
     if (!fastest) return false;
-    const targetUid = chooseTargetForAbility(unit, fastest.ab);
-    return triggerAbilityNow(unit, fastest.idx, targetUid, false);
-  }
+    return triggerAbilityNow(unit, fastest.idx, chooseTargetForAbility(unit, fastest.ab), true);
+  };
 
-  // The turn's hand is the unplayed bench. Max-life buffs applied to those cards
-  // are persisted by card id and applied when the card enters the field.
   if (typeof window.makeUnit === 'function' && !window.__hvMakeUnitWrapped) {
     const nativeMakeUnit = window.makeUnit;
     window.__hvMakeUnitWrapped = true;
     window.makeUnit = function(cardId, ownerIdx) {
       const unit = nativeMakeUnit(cardId, ownerIdx);
       const bonus = Number(state?.players?.[ownerIdx]?.handMaxLifeBonus?.[cardId] || 0);
+      const handGain = Number(state?.players?.[ownerIdx]?.handLifeGainThisTurn?.[cardId] || 0);
       if (bonus) {
         unit.maxLife += bonus;
         unit.life += bonus;
       }
-      unit.lifeGainThisTurn = 0;
+      unit.lifeGainThisTurn = handGain;
       unit.damageTakenThisTurn = 0;
       unit.threshold40Triggered = false;
       unit.threshold20Triggered = false;
@@ -104,12 +102,14 @@
     window.initGame = function(...args) {
       const result = nativeInitGame(...args);
       ensureTurnState();
-      for (const p of state.players) p.handMaxLifeBonus ||= {};
+      for (const p of state.players) {
+        p.handMaxLifeBonus ||= {};
+        p.handLifeGainThisTurn ||= {};
+      }
       return result;
     };
   }
 
-  // Silence means no ability can be declared while the status lasts.
   if (typeof window.availableAbilities === 'function' && !window.__hvAvailableWrapped) {
     const nativeAvailable = window.availableAbilities;
     window.__hvAvailableWrapped = true;
@@ -119,8 +119,6 @@
     };
   }
 
-  // Track every real life gain, including max-life gains. Grath can drink from
-  // any such gain on a target in the same turn, except Grath -> Grath.
   if (!window.__hvHealWrapped) {
     const nativeHeal = Engine.applyHeal;
     window.__hvHealWrapped = true;
@@ -134,17 +132,49 @@
         unit.statuses = unit.statuses.filter(s => s.status !== 'sangramento');
         log(`${unit.name} recebe cura e deixa de Sangrar.`);
       }
-      if (!(source?.cardId === 'grath' && unit.cardId === 'grath')) unit.lifeGainThisTurn = (unit.lifeGainThisTurn || 0) + healed;
+      if (!(source?.cardId === 'grath' && unit.cardId === 'grath')) {
+        unit.lifeGainThisTurn = (unit.lifeGainThisTurn || 0) + healed;
+      }
       unit.lastHealAmount = healed;
       return result ?? healed;
     };
   }
 
-  // Damage bookkeeping + Mularna thresholds + persistent damage boosts.
   if (!window.__hvDamageWrapped) {
     const nativeDamage = Engine.applyDamage;
     window.__hvDamageWrapped = true;
     Engine.applyDamage = function(unit, amount, log, source = null) {
+      if (unit?.__hvExactDamage !== undefined) {
+        const exact = Math.max(0, Number(unit.__hvExactDamage) || 0);
+        delete unit.__hvExactDamage;
+        if (!unit.dead) {
+          let remaining = exact;
+          if (unit.shield && unit.shield.value > 0) {
+            const absorbed = Math.min(unit.shield.value, remaining);
+            unit.shield.value -= absorbed;
+            remaining -= absorbed;
+            log(`${unit.name} absorve ${absorbed} de dano com o Escudo.`);
+            if (unit.shield.value <= 0) unit.shield = null;
+          }
+          unit.life -= remaining;
+          if (unit.life < 0) unit.life = 0;
+          if (unit.life === 0) unit.dead = true;
+          if (remaining > 0) log(`${unit.name} sofre ${remaining} de dano. (Vida: ${unit.life}/${unit.maxLife})`);
+          unit.damageTakenThisTurn = (unit.damageTakenThisTurn || 0) + exact;
+          return exact;
+        }
+        return 0;
+      }
+
+      const cap = unit?.statuses?.find(s => s.status === 'damageCap' && (!s.startTurn || state.turn >= s.startTurn));
+      const originalStatuses = unit?.statuses;
+      if (unit?.statuses && cap === undefined && unit.statuses.some(s => s.status === 'damageCap' && s.startTurn && state.turn < s.startTurn)) {
+        unit.statuses = unit.statuses.filter(s => !(s.status === 'damageCap' && s.startTurn && state.turn < s.startTurn));
+        const dealt = Engine.applyDamage(unit, amount, log, source);
+        unit.statuses = originalStatuses;
+        return dealt;
+      }
+
       let finalAmount = Number(amount) || 0;
       if (source && unit && source.statuses?.length) {
         const boost = source.statuses.filter(s => s.status === 'damageBoost').reduce((sum, s) => sum + (Number(s.value) || 0), 0);
@@ -171,7 +201,6 @@
     };
   }
 
-  // Preserve existing extensions, but add the missing generic effects in-order.
   if (!window.__hvRunEffectsWrapped) {
     const nativeRunEffects = Engine.runEffects;
     window.__hvRunEffectsWrapped = true;
@@ -182,22 +211,30 @@
         if (!eff) continue;
 
         if (eff.type === 'buffMaxLife' && eff.target === 'allAlliesIncludingHand') {
-          const activeEffect = { ...eff, target: 'allAllies' };
           window.__hvEffectSource = ctx.caster;
-          nativeRunEffects([activeEffect], ctx, log);
+          nativeRunEffects([{ ...eff, target: 'allAllies' }], ctx, log);
           window.__hvEffectSource = null;
           const player = state.players[ctx.caster.owner];
           player.handMaxLifeBonus ||= {};
+          player.handLifeGainThisTurn ||= {};
           for (const cardId of handIds(ctx.caster.owner)) {
-            player.handMaxLifeBonus[cardId] = (player.handMaxLifeBonus[cardId] || 0) + Number(eff.value || 0);
-            log(`${CARD_DB[cardId]?.name || cardId}, ainda na mão, ganha +${eff.value} de Vida máxima.`);
+            const value = Number(eff.value || 0);
+            player.handMaxLifeBonus[cardId] = (player.handMaxLifeBonus[cardId] || 0) + value;
+            player.handLifeGainThisTurn[cardId] = (player.handLifeGainThisTurn[cardId] || 0) + value;
+            log(`${CARD_DB[cardId]?.name || cardId}, ainda na mão, ganha +${value} de Vida máxima.`);
           }
           continue;
         }
 
         if (eff.type === 'dealDamage' && eff.scaling?.count === 'allEnemiesFieldAndHand') {
           const opponent = 1 - ctx.caster.owner;
-          const adjusted = { ...eff, base: Number(eff.base || 0) + Number(eff.scaling.perUnit || 0) * handCount(opponent), scaling: { ...eff.scaling } };
+          const fieldCount = (ctx.enemyField || ctx.enemyTeam || []).filter(u => !u.dead).length;
+          const handBonus = handCount(opponent);
+          const adjusted = {
+            ...eff,
+            base: Number(eff.base || 0) + Number(eff.scaling.perUnit || 0) * (fieldCount + handBonus),
+            scaling: null,
+          };
           window.__hvEffectSource = ctx.caster;
           nativeRunEffects([adjusted], ctx, log);
           window.__hvEffectSource = null;
@@ -206,6 +243,9 @@
         }
 
         if (eff.type === 'dealDamage' || eff.type === 'conditionalDamage') {
+          if (eff.type === 'dealDamage' && ctx.caster?.cardId === 'grath' && eff.target === 'chooseEnemy') {
+            ctx.__grathInitialTargetLife = ctx.chosenTarget ? Engine.getCurrentLife(ctx.chosenTarget) : null;
+          }
           window.__hvEffectSource = ctx.caster;
           nativeRunEffects([eff], ctx, log);
           window.__hvEffectSource = null;
@@ -222,6 +262,15 @@
           continue;
         }
 
+        if (eff.type === 'conditionalDamage' && ctx.caster?.cardId === 'grath' && eff.condition === 'targetLifeGTE:100') {
+          if (Number(ctx.__grathInitialTargetLife || 0) >= 100) {
+            window.__hvEffectSource = ctx.caster;
+            nativeRunEffects([eff], ctx, log);
+            window.__hvEffectSource = null;
+          }
+          continue;
+        }
+
         if (eff.type === 'conditionalLifesteal') {
           const target = ctx.lastTarget;
           const gained = Number(target?.lifeGainThisTurn || 0);
@@ -232,16 +281,14 @@
         }
 
         if (eff.type === 'moveNow') {
-          const targets = Engine.resolveTargets(eff.target, ctx).filter(Boolean);
-          for (const target of targets) {
+          for (const target of Engine.resolveTargets(eff.target, ctx).filter(Boolean)) {
             if (forceDeclaredMove(target)) log(`${target.name} se move imediatamente!`);
           }
           continue;
         }
 
         if (eff.type === 'conditionalTrigger' && eff.trigger === 'useCheapestAbility') {
-          const targetSpec = eff.target || eff.buff?.target || 'allyAtacante';
-          const targets = Engine.resolveTargets(targetSpec, ctx).filter(Boolean);
+          const targets = Engine.resolveTargets(eff.target || eff.buff?.target || 'allyAtacante', ctx).filter(Boolean);
           for (const target of targets) {
             if (useFastestAbility(target)) log(`${ctx.caster.name} faz ${target.name} usar sua Habilidade mais rápida imediatamente.`);
           }
@@ -249,8 +296,7 @@
         }
 
         if (eff.type === 'taunt') {
-          const targets = Engine.resolveTargets(eff.target, ctx).filter(Boolean);
-          for (const target of targets) {
+          for (const target of Engine.resolveTargets(eff.target, ctx).filter(Boolean)) {
             target.statuses = target.statuses.filter(s => s.status !== 'tauntedBy');
             target.statuses.push({ status: 'tauntedBy', value: ctx.caster.uid, duration: 1 });
             log(`${ctx.caster.name} Provoca ${target.name}.`);
@@ -263,7 +309,7 @@
           state.delayedEffects.push({
             dueTurn: state.turn + Math.max(1, Number(eff.delay) || 1),
             sourceUid: ctx.caster.uid,
-            targetUid: ctx.chosenTarget?.uid || null,
+            targetUid: null,
             effects: JSON.parse(JSON.stringify(eff.effects || [])),
           });
           log(`Efeito atrasado de ${ctx.caster.name} agendado para o final do Turno ${state.turn + Math.max(1, Number(eff.delay) || 1)}.`);
@@ -337,21 +383,22 @@
     for (const job of due) {
       const caster = getUnit(job.sourceUid);
       if (!caster || caster.dead) continue;
-      const target = job.targetUid ? getUnit(job.targetUid) : null;
+      const currentTarget = enemyTeamOf(caster).find(u => !u.dead) || null;
       const ctx = {
         caster,
-        chosenTarget: target,
+        chosenTarget: currentTarget,
         allyTeam: allyTeamOf(caster),
         enemyTeam: enemyTeamOf(caster),
         enemyField: enemyTeamOf(caster),
         enemyHand: handIds(caster.owner ^ 1).map(cardId => ({ cardId, role: CARD_DB[cardId]?.role, dead: false })),
-        lastTarget: target,
+        lastTarget: currentTarget,
         onCreateToken: tokenId => { const tok = makeUnit(tokenId, caster.owner); tok.justSpawned = true; ownerOf(caster).extraUnits.push(tok); },
         onSacrificeToken: (tokenId, log) => { const list = ownerOf(caster).extraUnits, idx = list.findIndex(u => u.cardId === tokenId && !u.dead); if (idx >= 0) { list[idx].dead = true; list[idx].life = 0; log(`${list[idx].name} é destruída como custo da habilidade.`); } },
         onFieldEffect: (effect, duration, log) => { ownerOf(caster).fieldEffects[effect] = duration; log(`Efeito de campo "${effect}" ativado por ${duration} turno(s).`); },
-        onDelayedEffect: (eff, log) => { state.delayedEffects.push({ dueTurn: state.turn + Math.max(1, Number(eff.delay) || 1), sourceUid: caster.uid, targetUid: target?.uid || null, effects: JSON.parse(JSON.stringify(eff.effects || [])) }); },
+        onDelayedEffect: (eff, log) => { state.delayedEffects.push({ dueTurn: state.turn + Math.max(1, Number(eff.delay) || 1), sourceUid: caster.uid, targetUid: null, effects: JSON.parse(JSON.stringify(eff.effects || [])) }); },
         onReviveCopy: (cardId, life, log) => { const dead = ownerOf(caster).extraUnits.find(u => u.cardId === cardId && u.dead); if (dead) { dead.dead = false; dead.life = life; log(`${dead.name} retorna à vida com ${life} de vida!`); } }
       };
+      if (!currentTarget) continue;
       logMsg(`⏳ Efeito atrasado de ${caster.name} resolve agora.`);
       Engine.runEffects(job.effects, ctx, logMsg);
       checkDeaths();
@@ -377,26 +424,36 @@
       }
 
       for (const u of allUnitsAll()) {
-        if (u.dead) continue;
-        const bleed = u.statuses.find(s => s.status === 'sangramento');
-        if (bleed) Engine.applyDamage(u, bleed.value, logMsg);
-        u.statuses = u.statuses.filter(s => {
-          if (s.duration === -1) return true;
-          s.duration -= 1;
-          return s.duration > 0;
-        });
+        if (!u.dead) {
+          const bleed = u.statuses.find(s => s.status === 'sangramento');
+          if (bleed) {
+            u.__hvExactDamage = Number(bleed.value) || 0;
+            Engine.applyDamage(u, bleed.value, logMsg);
+          }
+        }
+
+        if (u.statuses) {
+          u.statuses = u.statuses.filter(s => {
+            if (s.duration === -1) return true;
+            s.duration -= 1;
+            return s.duration > 0;
+          });
+        }
+
         if (u.shield) {
           const remaining = u.shield.value;
           u.shield.duration -= 1;
           if (u.shield.duration <= 0) {
             u.shield = null;
             logMsg(`O Escudo de ${u.name} expira.`);
-            if (u.cardId === 'rankorr' && remaining > 0 && !u.dead) {
+            if (u.cardId === 'rankorr' && remaining > 0) {
               logMsg(`O Escudo de ${u.name} explode e causa ${remaining} de dano a todos os inimigos!`);
               for (const enemy of enemyTeamOf(u).filter(e => !e.dead)) Engine.applyDamage(enemy, remaining, logMsg, u);
             }
           }
         }
+
+        if (u.dead) continue;
         for (const k of Object.keys(u.cooldowns)) if (u.cooldowns[k] > 0) u.cooldowns[k]--;
       }
 
@@ -413,6 +470,7 @@
         u.lifeGainThisTurn = 0;
         u.damageTakenThisTurn = 0;
       }
+      for (const p of state.players) p.handLifeGainThisTurn = {};
 
       state.hvActedThisTurn = new Set();
       state.hvForcedActions = new Set();
@@ -424,10 +482,23 @@
   }
 
   const normalizeNiraDuration = () => {
-    const nira = window.CARD_DB?.nira;
-    const effect = nira?.abilities?.[0]?.effects?.find(e => e.type === 'applyStatus' && e.status === 'damageCap');
+    const effect = window.CARD_DB?.nira?.abilities?.[0]?.effects?.find(e => e.type === 'applyStatus' && e.status === 'damageCap');
     if (effect) effect.duration = 2;
   };
+
+  const markNiraCapStart = () => {
+    const nativeRun = Engine.runEffects;
+    if (window.__hvNiraCapStartWrapped) return;
+    window.__hvNiraCapStartWrapped = true;
+    Engine.runEffects = function(effects, ctx, log) {
+      for (const eff of effects || []) {
+        if (eff?.type === 'applyStatus' && eff.status === 'damageCap') eff.startTurn = state.turn + 1;
+      }
+      return nativeRun(effects, ctx, log);
+    };
+  };
+
   normalizeNiraDuration();
   ensureTurnState();
+  markNiraCapStart();
 })();
