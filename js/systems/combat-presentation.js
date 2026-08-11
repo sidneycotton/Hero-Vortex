@@ -41,15 +41,20 @@
   function travel(k,casterUid,targetUid){const s=point(casterUid),t=point(targetUid);if(!s||!t)return;const g=glyph(s.x,s.y,k,'hv-travel',1800);g.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:`translate(${(t.x-s.x)*.45}px,${(t.y-s.y)*.45}px) scale(1.05)`,opacity:1,offset:.42},{transform:`translate(${t.x-s.x}px,${t.y-s.y}px) scale(1.2)`,opacity:1,offset:.82},{transform:`translate(${t.x-s.x}px,${t.y-s.y-24}px) scale(.65)`,opacity:0}],{duration:1500,easing:'cubic-bezier(.18,.8,.15,1)',fill:'forwards'}).finished.then(()=>g.remove()).catch(()=>g.remove())}
   function animateEffect(effect,diff,delay){const k=kindOf(effect),targets=targetIds(effect,diff);setTimeout(()=>{sound(k);if(k==='damage'){const area=['allEnemies','allEnemiesFieldAndHand','enemyDefensor','enemyAtacante','enemySuporte'].includes(effect?.target)||targets.length>1;area?areaDamage(diff.casterUid,targets):targets[0]&&singleStrike(diff.casterUid,targets[0])}else if(k==='heal'||k==='buff')targets.forEach((uid,i)=>setTimeout(()=>{travel(k,diff.casterUid,uid);const p=point(uid);if(p)glyph(p.x,p.y,k,'hv-target-burst',1600)},i*420));else if(k==='shield')targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){el(uid)?.classList.remove('hv-shield-pulse');void el(uid)?.offsetWidth;el(uid)?.classList.add('hv-shield-pulse');glyph(t.x,t.y,k,'hv-shield-dome',1600)}},i*380));else if(k==='status')targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){el(uid)?.classList.remove('hv-status-pulse');void el(uid)?.offsetWidth;el(uid)?.classList.add('hv-status-pulse');glyph(t.x,t.y,k,'hv-status-rune',1600)}},i*400));else if(k==='summon'){const ids=Object.keys(diff.after||{}).filter(uid=>!(diff.before||{})[uid]);ids.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){glyph(t.x,t.y,k,'hv-summon-burst',1900);el(uid)?.classList.add('hv-summon-enter')}},500+i*500))}else if(k==='sacrifice'){const source=point(diff.casterUid),ids=Object.keys(diff.before||{}).filter(uid=>!(diff.after||{})[uid]);ids.forEach((uid,i)=>{const t=point(uid);if(!source||!t)return;setTimeout(()=>{glyph(t.x,t.y,k,'hv-sacrifice-burst',1700);glyph(source.x,source.y,k,'hv-sacrifice-core',1700)},i*450)})}else if(k==='revive')targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){glyph(t.x,t.y,k,'hv-revive-rune',2100);el(uid)?.classList.add('hv-revive-enter')}},i*420));else if(k==='field'){const s=document.querySelector('.hv-battle-stage')?.getBoundingClientRect();if(s){glyph(s.left+s.width/2,s.top+s.height/2,k,'hv-field-weather',2300);document.querySelector('.hv-battle-stage')?.classList.add('hv-field-wave')}}else if(k==='taunt')targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){el(uid)?.classList.add('hv-taunt-shake');glyph(t.x,t.y,k,'hv-taunt-mark',1500)}},i*400));else if(k==='move')targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t)glyph(t.x,t.y,k,'hv-move-arrow',1500)},i*400));else if(k==='delayed'){const s=point(diff.casterUid);if(s)glyph(s.x,s.y,k,'hv-delayed-rune',1700)}},delay)}
 
-  // The resolver used to re-render after ~1s, while combat presentation was still running.
-  // Keep the rendered battlefield stable for the full presentation and prevent the next
-  // resolution step from starting until the current visual sequence has completed.
   let queuedRender=false;
   const originalRender=window.render;
   if(typeof originalRender==='function'){
     window.render=function(){
       if(window.HVCombatBusy){queuedRender=true;return;}
       return originalRender.apply(this,arguments);
+    };
+  }
+
+  const originalAutoResolveStep=window.autoResolveStep;
+  if(typeof originalAutoResolveStep==='function'){
+    window.autoResolveStep=function(){
+      if(window.HVCombatBusy){setTimeout(window.autoResolveStep,200);return;}
+      return originalAutoResolveStep.apply(this,arguments);
     };
   }
 
