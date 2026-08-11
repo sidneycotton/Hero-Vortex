@@ -433,33 +433,37 @@ function statusLabel(s) {
   return labels[s.status] || s.status;
 }
 
+const ROLE_ICON = { defensor: '🛡️', atacante: '⚔️', suporte: '✨', token: '⚙️' };
+
 function unitCardHTML(u, opts = {}) {
-  const { selectable, showAbilities } = opts;
+  const { selectable, showAbilities, abilitiesLocked } = opts;
   const deadClass = u.dead ? 'unit-dead' : '';
   const selClass = selectable ? 'unit-selectable' : '';
   return `
     <div class="unit-card ${deadClass} ${selClass}" data-uid="${u.uid}" onclick="handleUnitClick('${u.uid}')">
-      <div class="unit-role-tag role-${u.role}">${roleLabel(u.role)}</div>
-      <div class="unit-name">${u.name}</div>
-      <div class="unit-life-bar">
-        <div class="unit-life-fill" style="width:${Math.max(0,(u.life/u.maxLife)*100)}%"></div>
-        <span class="unit-life-text">${Math.max(0,u.life)} / ${u.maxLife}${u.shield ? ` 🛡️${u.shield.value}` : ''}</span>
+      <div class="unit-header-line">
+        <span class="unit-heart" title="Vida">❤️<span class="unit-heart-value">${Math.max(0,u.life)}</span></span>
+        <span class="unit-role-icon role-${u.role}" title="${roleLabel(u.role)}">${ROLE_ICON[u.role] || ''}</span>
+        <span class="unit-name">${u.name}</span>
+        ${u.shield ? `<span class="unit-shield-inline">🛡️${u.shield.value}</span>` : ''}
       </div>
+      <div class="unit-maxlife-sub">${Math.max(0,u.life)} / ${u.maxLife}</div>
       ${u.statuses.length ? `<div class="unit-statuses">${u.statuses.map(s => `<span class="status-chip">${statusLabel(s)}</span>`).join('')}</div>` : ''}
       ${Object.keys(u.counters).length ? `<div class="unit-counters">${Object.entries(u.counters).map(([k,v]) => `<span class="counter-chip">${k}: ${v}</span>`).join('')}</div>` : ''}
-      ${u.dead ? '<div class="unit-fallen">💀 Derrotado</div>' : (showAbilities ? abilitiesHTML(u) : '')}
+      ${u.dead ? '<div class="unit-fallen">💀 Derrotado</div>' : (showAbilities ? abilitiesHTML(u, { locked: abilitiesLocked }) : '')}
     </div>
   `;
 }
 
-function abilitiesHTML(u) {
+function abilitiesHTML(u, opts = {}) {
   const def = CARD_DB[u.cardId];
   const isPending = state.pendingUnit === u.uid;
+  const locked = !!opts.locked;
   return `<div class="unit-abilities">
     ${def.abilities.map((ab, i) => {
       const onCd = u.cooldowns[i] > 0;
-      const disabled = !isPending || onCd;
-      return `<button class="ability-btn" ${disabled ? 'disabled' : ''} onclick="event.stopPropagation(); playerChooseAbility(${i})">
+      const disabled = locked || !isPending || onCd;
+      return `<button class="ability-btn ${locked ? 'ability-btn-locked' : ''}" ${disabled ? 'disabled' : ''} onclick="event.stopPropagation(); ${locked ? '' : `playerChooseAbility(${i})`}">
         <span class="ability-cost">${ab.speed}</span>
         <span class="ability-text">${ab.text}</span>
         ${onCd ? `<span class="ability-cd">⏳${u.cooldowns[i]}</span>` : (ab.cooldown ? `<span class="ability-cd-max">⏳${ab.cooldown}</span>` : '')}
@@ -524,7 +528,7 @@ function renderDeclarePhase() {
   const enemy = state.players[enemyIdx];
   const enemyUnitHTML = (u) => {
     const selectableForTargeting = targeting && isValidTargetForCurrentSelection(u);
-    return unitCardHTML(u, { showAbilities: false, selectable: selectableForTargeting });
+    return unitCardHTML(u, { showAbilities: true, abilitiesLocked: true, selectable: selectableForTargeting });
   };
   const enemyRows = ROLES.map(role => {
     const slot = enemy.slots[role];
