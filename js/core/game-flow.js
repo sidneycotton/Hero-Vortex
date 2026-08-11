@@ -2,27 +2,35 @@
 function startDeclarePhaseForPlayer(playerIdx) {
   state.phase = 'declare'; state.declaring = playerIdx; state.declarations[playerIdx] = {};
   const units = allUnitsOf(playerIdx).filter(u => !u.dead);
-  state.pendingQueue = units.map(u => u.uid); state.pendingUnit = null; advanceDeclareQueue();
+  state.pendingQueue = units.map(u => u.uid); state.pendingIndex = 0; state.pendingUnit = null; state.choosingTargetFor = null;
+  advanceDeclareQueue();
 }
 function advanceDeclareQueue() {
-  if (!state.pendingQueue.length) { finishDeclareForPlayer(state.declaring); return; }
-  const uid = state.pendingQueue[0], unit = getUnit(uid);
-  if (!unit || unit.dead) { state.pendingQueue.shift(); advanceDeclareQueue(); return; }
-  const avail = availableAbilities(unit);
-  if (!avail.length) {
-    logMsg(`${unit.name} está com tudo em recarga e passa a vez.`);
-    state.declarations[state.declaring][uid] = null; state.pendingQueue.shift(); advanceDeclareQueue(); return;
+  while (state.pendingIndex < state.pendingQueue.length) {
+    const uid = state.pendingQueue[state.pendingIndex], unit = getUnit(uid);
+    if (!unit || unit.dead) { state.pendingIndex++; continue; }
+    const avail = availableAbilities(unit);
+    if (!avail.length) {
+      logMsg(`${unit.name} está com tudo em recarga e passa a vez.`);
+      state.declarations[state.declaring][uid] = null; state.pendingIndex++; continue;
+    }
+    state.pendingUnit = uid; render(); return;
   }
-  state.pendingUnit = uid; render();
+  state.pendingUnit = null; render();
 }
 function playerChooseAbility(abilityIdx) {
   const uid = state.pendingUnit, unit = getUnit(uid), ability = CARD_DB[unit.cardId].abilities[abilityIdx];
+  if (!unit || !ability || !availableAbilities(unit).some(a => a.idx === abilityIdx)) return;
   const needsTarget = ability.effects.some(e => ['chooseAlly', 'chooseEnemy', 'chooseAllyNotMovedYet'].includes(e.target));
   if (needsTarget) { state.choosingTargetFor = { uid, abilityIdx }; renderTargetOverlay(); }
   else commitDeclaration(uid, abilityIdx, null);
 }
 function playerChooseTarget(targetUid) {
-  const { uid, abilityIdx } = state.choosingTargetFor; state.choosingTargetFor = null; closeTargetOverlay(); commitDeclaration(uid, abilityIdx, targetUid);
+  const { uid, abilityIdx } = state.choosingTargetFor || {};
+  if (!uid) return;
+  const target = getUnit(targetUid), caster = getUnit(uid);
+  if (!target || !caster || !isValidTargetForCurrentSelection(target)) return;
+  state.choosingTargetFor = null; closeTargetOverlay(); commitDeclaration(uid, abilityIdx, targetUid);
 }
 function cancelTargeting() { state.choosingTargetFor = null; closeTargetOverlay(); render(); }
 function closeTargetOverlay() { document.getElementById('hvTargetOverlay')?.remove(); }
@@ -48,7 +56,25 @@ function renderTargetOverlay() {
   overlay.querySelectorAll('.hv-target-option').forEach((el,i)=>{el.style.animationDelay=(i*.05)+'s';el.onclick=()=>playerChooseTarget(el.dataset.uid);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')playerChooseTarget(el.dataset.uid)}});
   document.getElementById('hvTargetCancelBtn').onclick=cancelTargeting;
 }
-function commitDeclaration(uid, abilityIdx, targetUid) { state.declarations[state.declaring][uid]={abilityIdx,targetUid}; state.pendingQueue.shift(); state.pendingUnit=null; advanceDeclareQueue(); }
+function commitDeclaration(uid, abilityIdx, targetUid) {
+  state.declarations[state.declaring][uid] = {abilityIdx,targetUid};
+  state.pendingIndex++;
+  state.pendingUnit = null;
+  advanceDeclareQueue();
+}
+function backToPreviousDeclaration() {
+  if (state.choosingTargetFor || state.pendingIndex <= 0) return;
+  state.pendingIndex--;
+  const uid = state.pendingQueue[state.pendingIndex];
+  delete state.declarations[state.declaring][uid];
+  state.pendingUnit = uid;
+  render();
+}
+function confirmDeclarations() {
+  if (state.pendingIndex < state.pendingQueue.length) return;
+  state.pendingUnit = null;
+  finishDeclareForPlayer(state.declaring);
+}
 function finishDeclareForPlayer(playerIdx) {
   if (playerIdx===0 && !state.vsBot) { showPassDeviceScreen(1); return; }
   if (playerIdx===0 && state.vsBot) { declareBot(1); beginResolution(); return; }
