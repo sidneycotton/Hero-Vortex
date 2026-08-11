@@ -10,12 +10,19 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body><div id="app"></div>
-<!-- Core first: the card batches below can safely wait for CARD_DB/engine globals. -->
+
+
+
 <script src="engine.js"></script>
+
+<!-- Shared globals and application modules. -->
 <script src="app.js"></script>
+<script src="js/core/game-state.js"></script>
+<script src="js/core/game-flow.js"></script>
+<script src="js/ui/render.js"></script>
+<script src="js/ui/deckbuilder-screen.js"></script>
 
-
-<!-- Presentation/UI modules. -->
+<!-- Independent feature systems. -->
 <script src="deckbuilder.js?v=2"></script>
 <script src="audio.js?v=3"></script>
 <script src="combat-presentation.js?v=2"></script>
