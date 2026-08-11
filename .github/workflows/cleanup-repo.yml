@@ -41,9 +41,7 @@ jobs:
             throw new Error('Unclosed ' + open + ' block');
           }
 
-          function parseLiteral(text) {
-            return vm.runInNewContext('(' + text + ')');
-          }
+          function parseLiteral(text) { return vm.runInNewContext('(' + text + ')'); }
 
           function findDeclaration(src, names, opening) {
             for (const name of names) {
@@ -74,8 +72,7 @@ jobs:
           }
 
           function stripInjection(src) {
-            src = src.replace(/\n?\s*function\s+inject\([\s\S]*?\n?\s*const\s+\w+\s*=\s*setInterval\([\s\S]*?\);/m, '\n');
-            return src;
+            return src.replace(/\n?\s*function\s+inject\([\s\S]*?\n?\s*const\s+\w+\s*=\s*setInterval\([\s\S]*?\);/m, '\n');
           }
 
           function addCards(db, cards, source) {
@@ -187,9 +184,12 @@ jobs:
           find cards -type d -empty -delete 2>/dev/null || true
           find .github -type d -empty -delete 2>/dev/null || true
 
-          if grep -R -n --exclude-dir=.git -E 'new-defenders\.js|more-defenders\.js|new-defenders-2\.js|new-attackers-4\.js|new-supports-1\.js|defender-expansion\.js' .; then exit 1; fi
+          # Only flag actual runtime references; consolidated source labels in engine.js are allowed.
+          if grep -R -n --exclude-dir=.git -E '<script[^>]+(new-defenders|more-defenders|new-defenders-2|new-attackers-4|new-supports-1|defender-expansion)\.js' .; then exit 1; fi
           if grep -R -n --exclude-dir=.git 'function inject' .; then exit 1; fi
           if grep -R -n --exclude-dir=.git 'window\.fetch.*cards\.json' .; then exit 1; fi
+          for f in new-defenders.js more-defenders.js new-defenders-2.js new-attackers-4.js new-supports-1.js defender-expansion.js; do test ! -e "$f"; done
+          test ! -e cards
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
