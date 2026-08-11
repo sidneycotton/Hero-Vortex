@@ -62,6 +62,12 @@ function initGame(p1Picks, p2Picks, vsBot, initialChoices) {
     ],
     log: [], phase: 'declare', declaring: 0, declarations: { 0: {}, 1: {} },
     pendingUnit: null, pendingQueue: [], resolutionQueue: [], resolutionIdx: 0, winner: null,
+    // Estado transitório usado pelas regras de resolução. Estes pertencem ao estado do jogo,
+    // não ao módulo de regras, para existirem desde a criação da partida.
+    delayedEffects: [],
+    hvForcedActions: new Set(),
+    hvSkipResolution: new Set(),
+    hvActedThisTurn: new Set(),
   };
   for (const p of state.players) for (const role of ROLES) triggerUnitPlayed(p.slots[role].active);
   logMsg(`Partida iniciada! Fase de declaração — Turno ${state.turn}.`);
