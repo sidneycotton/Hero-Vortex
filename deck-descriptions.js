@@ -14,6 +14,16 @@
     moldar: 'Transforma os golpes recebidos em cura e pune quem ferir seus aliados antes de sua vez.',
     uragi: 'Acumula Fúria ao ser ferido e pode gastar esses contadores para atacar novamente.',
     ventrox: 'Contamina a próxima Habilidade de um inimigo e alterna entre vida, Escudo e cura do time.',
+    benicio: 'Protege unidades recém-criadas e prepara aliados para contra-atacar golpes pesados.',
+    rahdan: 'Rouba vida para fortalecer ataques aliados e converte a própria vida em Escudo.',
+    zengrath: 'Fica mais resistente com as mortes do jogo e transforma vida máxima em dano.',
+    predador_labirinto: 'Cria cópias ao ser danificado e escala quando sua horda chega ao limite.',
+    arborzilla: 'Ataca inimigos criados, melhora seu golpe com abates e redistribui efeitos purificados.',
+    porteiro: 'Provoca aliados, transforma seus golpes em cura e pune quem não o enfrenta.',
+    varghul: 'Cria cópias descartáveis e transforma mortes de aliados em dano imediato.',
+    cm9: 'Premia ações rápidas, converte dano recente em Escudo e retalia quando entra em alerta.',
+    boi: 'Absorve uma Habilidade inimiga da mão e pode reutilizá-la como se fosse sua.',
+    zeth: 'Aplica Decaimento crescente e usa seu Escudo para espalhar o efeito aos inimigos.'
   };
 
   function escapeHtml(value){return String(value ?? '').replace(/[&<>\"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));}
@@ -30,6 +40,7 @@
     if(/buff|fortale|mais \d+ de dano|pr[oó]x.*dano/.test(text))parts.push('fortalece ataques futuros');
     if(/campo|chuva|tempestade/.test(text))parts.push('altera o campo de batalha');
     if(/reviv|retorna.*vida/.test(text))parts.push('pode trazer uma unidade de volta');
+    if(/decaimento/.test(text))parts.push('aplica Decaimento progressivo');
     if(!parts.length)return'Uma carta com efeitos próprios para criar oportunidades durante a partida.';
     return parts.slice(0,2).join(' e ').replace(/^./,m=>m.toUpperCase())+'.';
   }
