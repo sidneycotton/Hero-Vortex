@@ -1,10 +1,9 @@
-/* Deckbuilder interaction polish.
-   Mobile-first long press:
-   - quick taps remain the existing click interaction;
-   - the hold UI starts only after HOLD_VISUAL_MS;
-   - after HOLD_MS the card's real .click() method runs;
-   - the programmatic click is allowed through, while only the later browser-generated
-     click is suppressed. This distinction is important on Android. */
+/* Deckbuilder long-press interaction — mobile first.
+   IMPORTANT: the small catalog card is a focus/preview button, not the
+   add/remove control. A hold therefore focuses the card first, waits for
+   the deckbuilder to render its inspector, and then activates the actual
+   "ESCOLHER CARTA" button. This uses the game's existing deck logic instead
+   of trying to duplicate toggleDeckPick from outside its closure. */
 (function(){
   const HOLD_MS = 420;
   const HOLD_VISUAL_MS = 150;
@@ -16,12 +15,12 @@
   let startX = 0;
   let startY = 0;
   let holdTriggered = false;
-  let suppressClickUntil = 0;
   let suppressCard = null;
-  let programmaticClick = false;
+  let suppressClickUntil = 0;
+  let internalAction = false;
 
   function getCard(target){
-    const el = target && target.closest ? target.closest('.hv-deck-card') : null;
+    const el = target && target.closest ? target.closest('[data-deck-card]') : null;
     return el && document.contains(el) ? el : null;
   }
 
@@ -38,12 +37,11 @@
   }
 
   function start(card,x,y){
-    if(!card || card.disabled || card.classList.contains('is-disabled')) return;
+    if(!card || card.disabled || card.hasAttribute('disabled')) return;
     reset();
     activeCard=card;
     startX=x;
     startY=y;
-    holdTriggered=false;
 
     visualTimer=setTimeout(function(){
       if(activeCard===card && !holdTriggered) card.classList.add('hv-long-pressing');
@@ -56,17 +54,27 @@
       holdTriggered=true;
       card.classList.remove('hv-long-pressing');
 
-      /* Run the exact native DOM click handler used by a normal tap.
-         Do NOT set suppressClick before this call: element.click() dispatches
-         synchronously, so doing that would suppress our own activation. */
-      programmaticClick=true;
+      const id=card.getAttribute('data-deck-card');
+      if(!id) return;
+
+      /* The micro card's normal click only focuses it. Focus first so the
+         inspector is rendered with this exact card, then activate the real
+         add/remove button from that freshly-rendered inspector. */
+      internalAction=true;
       try {
         card.click();
+        const selectButton=[...document.querySelectorAll('[data-select-card]')]
+          .find(el=>el.getAttribute('data-select-card')===id);
+        if(selectButton && !selectButton.disabled){
+          selectButton.click();
+        }
       } finally {
-        programmaticClick=false;
+        internalAction=false;
       }
 
-      /* Android may emit an additional trusted click after touchend. */
+      /* Android may dispatch a compatibility click after touchend. Only
+         suppress that old micro-card click; never suppress our inspector
+         button click above. */
       suppressCard=card;
       suppressClickUntil=Date.now()+1200;
     },HOLD_MS);
@@ -83,6 +91,7 @@
     return held;
   }
 
+  /* Native touch events are used intentionally for Android Chrome/WebView. */
   document.addEventListener('touchstart',function(e){
     if(e.touches.length!==1) return;
     const t=e.touches[0];
@@ -99,7 +108,6 @@
   document.addEventListener('touchend',function(e){
     const held=finish();
     if(held){
-      /* Prevent the browser's compatibility click where supported. */
       e.preventDefault();
       e.stopPropagation();
     }
@@ -130,17 +138,12 @@
   },{passive:true});
 
   document.addEventListener('click',function(e){
-    /* Our element.click() call is the actual activation. Let it reach the
-       deckbuilder's own click handler. */
-    if(!e.isTrusted && programmaticClick) return;
-
     if(!suppressCard || Date.now()>suppressClickUntil){
       suppressCard=null;
       return;
     }
-
     const card=getCard(e.target);
-    if(card===suppressCard){
+    if(card===suppressCard && !internalAction){
       e.preventDefault();
       e.stopImmediatePropagation();
       suppressCard=null;
