@@ -8,7 +8,7 @@
 
 ## Core application
 - `app.js` — bootstrap, shared globals, and card database loading.
-- `js/core/game-state.js` — units, state primitives, declaration helpers, and shared game-state helpers.
+- `js/core/game-state.js` — units and shared game-state helpers.
 - `js/core/game-flow.js` — declarations, bot decisions, combat resolution, turn progression, and win conditions.
 
 ## UI
@@ -24,4 +24,4 @@
 - `style.css` — application-wide styling and responsive/mobile rules.
 
 ## Architectural rule
-Each file should have one clear reason to change. Card data belongs in `cards.json`; rules belong in `engine.js`; application flow belongs in `core/`; UI belongs in `ui/`.
+Each file should have one clear reason to change. Card data belongs in `cards.json`; rules belong in `engine.js`; application flow belongs in `core/`; UI belongs in `ui/`. The remaining root-level feature modules are intentionally independent systems.
