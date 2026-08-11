@@ -1,57 +1,110 @@
-/* Hero Vortex combat presentation: the game-flow owns resolution; this module owns what the player sees. */
+/* Hero Vortex — deliberate combat choreography. */
 (() => {
-  const css = `
-    .hv-battle-screen{position:relative;overflow:hidden}
-    .hv-battle-screen .hv-battle-log{display:none!important}
-    .hv-battle-screen .hv-cast-banner{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:80;width:min(720px,calc(100% - 32px));display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:13px 18px;border:1px solid rgba(218,184,101,.28);border-radius:16px;background:rgba(12,16,23,.92);box-shadow:0 18px 55px rgba(0,0,0,.5),0 0 30px rgba(218,184,101,.08);backdrop-filter:blur(16px);animation:hvCastIn .25s ease-out both}
-    .hv-cast-name{font:700 .72rem/1 var(--font-accent);letter-spacing:.12em;text-transform:uppercase;color:#e0c77e;white-space:nowrap}
-    .hv-cast-text{font:600 1rem/1.3 var(--font-body);color:#f3f5f8}
-    .hv-cast-banner::before{content:'AÇÃO';position:absolute;left:14px;top:-8px;padding:3px 7px;border-radius:6px;background:#0c1017;border:1px solid rgba(218,184,101,.25);font:700 .55rem/1 var(--font-accent);letter-spacing:.14em;color:#8e98a8}
-    @keyframes hvCastIn{from{opacity:0;transform:translate(-50%,10px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
-    .hv-battle-screen .unit-card{position:relative;overflow:visible}
-    .hv-type-glyph{position:absolute;left:50%;top:50%;width:42px;height:42px;display:grid;place-items:center;z-index:90;pointer-events:none;transform:translate(-50%,-50%) scale(.35);opacity:0;animation:hvGlyph .72s cubic-bezier(.2,.85,.2,1) both;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
-    .hv-type-glyph svg{width:30px;height:30px;display:block}
-    .hv-type-glyph-damage{filter:drop-shadow(0 0 10px rgba(255,100,90,.7))}.hv-type-glyph-heal{filter:drop-shadow(0 0 10px rgba(90,235,150,.7))}.hv-type-glyph-shield{filter:drop-shadow(0 0 10px rgba(90,175,255,.75))}.hv-type-glyph-status{filter:drop-shadow(0 0 10px rgba(185,120,255,.7))}.hv-type-glyph-buff{filter:drop-shadow(0 0 10px rgba(245,205,105,.7))}
-    @keyframes hvGlyph{0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-12deg)}22%{opacity:1;transform:translate(-50%,-65%) scale(1.12) rotate(3deg)}68%{opacity:1;transform:translate(-50%,-92%) scale(1)}100%{opacity:0;transform:translate(-50%,-135%) scale(.8)}}
-    .hv-battle-screen .hv-fx-heal{animation:hvHeal .7s ease-out}.hv-battle-screen .hv-fx-shield{animation:hvShield .75s ease-out}.hv-battle-screen .hv-fx-status{animation:hvStatus .65s ease-out}.hv-battle-screen .hv-fx-buff{animation:hvBuff .65s ease-out}.hv-battle-screen .hv-fx-summon{animation:hvBuff .65s ease-out}.hv-battle-screen .hv-fx-revive{animation:hvBuff .8s ease-out}
-    @keyframes hvHeal{35%{box-shadow:0 0 0 7px rgba(90,240,140,.18),0 0 30px rgba(90,240,140,.35)}}@keyframes hvShield{35%{box-shadow:inset 0 0 28px rgba(90,175,255,.2),0 0 28px rgba(90,175,255,.4)}}@keyframes hvStatus{30%{filter:saturate(1.4) brightness(1.15)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}@keyframes hvBuff{40%{transform:scale(1.035)}70%{transform:scale(.99)}}
-    .hv-stage-burst{position:absolute;left:50%;top:50%;width:90px;height:90px;display:grid;place-items:center;z-index:70;pointer-events:none;transform:translate(-50%,-50%) scale(.35);opacity:0;border-radius:50%;border:1px solid rgba(218,184,101,.4);background:radial-gradient(circle,rgba(218,184,101,.18),transparent 70%);animation:hvBurst .9s ease-out both}.hv-stage-burst svg{width:40px;height:40px}@keyframes hvBurst{25%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}}
-    @media(max-width:650px){.hv-battle-screen .hv-cast-banner{bottom:10px;width:calc(100% - 18px);grid-template-columns:1fr;gap:4px;padding:11px 13px}.hv-cast-text{font-size:.9rem}.hv-type-glyph{width:34px;height:34px}.hv-type-glyph svg{width:25px;height:25px}}
-  `;
-  const st=document.createElement('style');st.id='hv-combat-presentation-css';st.textContent=css;document.head.appendChild(st);
+  const WAIT_BETWEEN_ACTIONS = 1000;
+  const ACTION_CUE_MS = 520;
+  const STEP_MS = 1200;
+  let pacingInstalled = false;
 
-  const iconFor=k=>{const i={damage:'sword',heal:'heart',shield:'shield',status:'target',buff:'spark',summon:'spark',field:'spark',taunt:'target',sacrifice:'sword',revive:'heart'};return typeof window.svgIcon==='function'?window.svgIcon(i[k]||'spark'):''};
-  const effectKind=e=>{if(!e)return'buff';if(['dealDamage','conditionalDamage','conditionalRepeat'].includes(e.type))return'damage';if(['heal','conditionalHeal','spendCounterToHeal','conditionalLifesteal'].includes(e.type))return'heal';if(e.type==='applyShield')return'shield';if(e.type==='applyStatus')return'status';if(e.type==='createToken')return'summon';if(e.type==='applyFieldEffect')return'field';if(e.type==='taunt')return'taunt';if(e.type==='sacrificeToken')return'sacrifice';if(e.type==='reviveCopy')return'revive';return'buff'};
-  const sound=k=>window.HVAudio?.play({damage:'impact',heal:'heal',shield:'shield',status:'status',buff:'buff',summon:'summon',field:'field',taunt:'buff',sacrifice:'impact',revive:'heal'}[k]||'buff');
-  const pulse=(el,k)=>{if(!el)return;el.classList.remove('hv-fx-'+k);void el.offsetWidth;el.classList.add('hv-fx-'+k);const g=document.createElement('div');g.className='hv-type-glyph hv-type-glyph-'+k;g.innerHTML=iconFor(k);el.appendChild(g);setTimeout(()=>{g.remove();el.classList.remove('hv-fx-'+k)},850)};
-  const added=d=>Object.keys(d.after||{}).filter(u=>!(d.before||{})[u]);
-  const revived=d=>Object.keys(d.after||{}).filter(u=>d.before?.[u]?.dead&&!d.after[u].dead);
-  const removed=d=>Object.keys(d.before||{}).filter(u=>!(d.after||{})[u]);
-
-  /* This is the actual playback entry point. game-flow calls it after each effect resolves. */
-  window.playCombatSequence=function(diff){
-    if(!diff)return;
-    const caster=document.querySelector(`.unit-card[data-uid="${diff.casterUid}"]`);
-    const casterUnit=typeof getUnit==='function'?getUnit(diff.casterUid):null;
-    const ability=casterUnit&&window.CARD_DB?CARD_DB[casterUnit.cardId]?.abilities?.[diff.abilityIdx]:null;
-    if(!ability)return;
-    let delay=80;
-    for(const e of ability.effects||[]){
-      const k=effectKind(e);const targets=[];
-      if(diff.targetUid)targets.push(diff.targetUid);
-      if(['allEnemies','allAllies','allAlliesIncludingHand'].includes(e.target))Object.keys(diff.after||{}).forEach(uid=>{if(!targets.includes(uid))targets.push(uid)});
-      if(k==='damage'&&['dealDamage','conditionalDamage'].includes(e.type)){
-        const valid=targets.filter(uid=>diff.after?.[uid]);
-        setTimeout(()=>{sound('damage');valid.forEach(uid=>pulse(document.querySelector(`.unit-card[data-uid="${uid}"]`),'damage'));if(!valid.length)pulse(caster,'damage')},delay);delay+=150;continue;
-      }
-      setTimeout(()=>{
-        sound(k);
-        if(k==='field'){const s=document.querySelector('.hv-battle-stage');if(s){const b=document.createElement('div');b.className='hv-stage-burst';b.innerHTML=iconFor(k);s.appendChild(b);setTimeout(()=>b.remove(),950)}return}
-        if(k==='summon'){added(diff).forEach(uid=>pulse(document.querySelector(`.unit-card[data-uid="${uid}"]`),k));if(!added(diff).length)pulse(caster,k);return}
-        if(k==='revive'){revived(diff).forEach(uid=>pulse(document.querySelector(`.unit-card[data-uid="${uid}"]`),k));if(!revived(diff).length)pulse(caster,k);return}
-        if(k==='sacrifice'){removed(diff).forEach(uid=>pulse(document.querySelector(`.unit-card[data-uid="${uid}"]`),k));if(!removed(diff).length)pulse(caster,k);return}
-        const valid=targets.filter(uid=>diff.after?.[uid]);valid.length?valid.forEach(uid=>pulse(document.querySelector(`.unit-card[data-uid="${uid}"]`),k)):pulse(caster,k);
-      },delay);delay+=120;
-    }
+  const iconName = {damage:'sword',heal:'heart',shield:'shield',status:'target',buff:'spark',summon:'spark',field:'spark',taunt:'target',sacrifice:'sword',revive:'heart',move:'target',delayed:'spark'};
+  const kindOf = e => {
+    if (!e) return 'buff';
+    if (['dealDamage','conditionalDamage','conditionalRepeat'].includes(e.type)) return 'damage';
+    if (['heal','conditionalHeal','spendCounterToHeal','conditionalLifesteal'].includes(e.type)) return 'heal';
+    if (e.type==='applyShield') return 'shield';
+    if (e.type==='applyStatus') return 'status';
+    if (['gainCounter','buffMaxLife','conditionalBuff'].includes(e.type)) return 'buff';
+    if (e.type==='createToken') return 'summon';
+    if (e.type==='sacrificeToken') return 'sacrifice';
+    if (e.type==='applyFieldEffect') return 'field';
+    if (e.type==='taunt') return 'taunt';
+    if (e.type==='reviveCopy') return 'revive';
+    if (e.type==='moveNow') return 'move';
+    if (e.type==='delayedEffect') return 'delayed';
+    return 'buff';
   };
+  const sound = k => window.HVAudio?.play({damage:'impact',heal:'heal',shield:'shield',status:'status',buff:'buff',summon:'summon',field:'field',taunt:'buff',sacrifice:'sacrifice',revive:'revive',move:'tap',delayed:'status'}[k]||'buff');
+  const el = uid => document.querySelector(`.unit-card[data-uid="${uid}"]`);
+  const point = uid => { const e=el(uid); if(!e)return null; const r=e.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height}; };
+  const layer = () => document.getElementById('hvFxLayer') || document.body;
+  const svg = k => typeof window.svgIcon==='function' ? window.svgIcon(iconName[k]||'spark') : '';
+
+  function actionCue(uid,k){
+    const e=el(uid); if(!e)return; e.querySelector('.hv-action-cue')?.remove();
+    const cue=document.createElement('div'); cue.className=`hv-action-cue hv-action-${k}`;
+    cue.innerHTML=`<span>${svg(k)}</span><b>${({damage:'ATAQUE',heal:'CURA',shield:'ESCUDO',status:'STATUS',buff:'BUFF',summon:'INVOCAR',sacrifice:'SACRIFÍCIO',field:'CAMPO',taunt:'PROVOCAÇÃO',revive:'REVIVER',move:'MOVER',delayed:'EFEITO'})[k]||'AÇÃO'}</b>`;
+    e.appendChild(cue); setTimeout(()=>cue.remove(),ACTION_CUE_MS);
+  }
+  function glyph(x,y,k,cls=''){
+    const g=document.createElement('div'); g.className=`hv-combat-glyph hv-combat-${k} ${cls}`; g.style.left=`${x}px`; g.style.top=`${y}px`; g.innerHTML=svg(k); layer().appendChild(g); setTimeout(()=>g.remove(),1500); return g;
+  }
+  function targetIds(effect,diff){
+    if(diff.targetUid)return [diff.targetUid];
+    const groups=['allEnemies','allEnemiesFieldAndHand','allAllies','allAlliesIncludingHand','enemyDefensor','enemyAtacante','enemySuporte','allyAtacante','allyDefensor'];
+    if(groups.includes(effect?.target))return Object.keys(diff.after||{}).filter(uid=>diff.after[uid]&&!diff.after[uid].dead);
+    if(effect?.target==='self')return [diff.casterUid];
+    if(effect?.target==='lastTarget')return diff.targetUid?[diff.targetUid]:[];
+    return [];
+  }
+
+  function singleStrike(casterUid,targetUid){
+    const s=point(casterUid),t=point(targetUid); if(!s||!t)return;
+    const ghost=el(casterUid)?.cloneNode(true); if(!ghost)return;
+    ghost.className='hv-combat-card-ghost hv-strike-ghost';
+    Object.assign(ghost.style,{left:`${s.x-s.w/2}px`,top:`${s.y-s.h/2}px`,width:`${s.w}px`,height:`${s.h}px`}); layer().appendChild(ghost); sound('damage');
+    ghost.animate([
+      {transform:'translate3d(0,0,0) scale(1)',opacity:.95},
+      {transform:`translate3d(${(t.x-s.x)*.6}px,${(t.y-s.y)*.6}px,0) scale(1.04) rotate(${t.x>=s.x?3:-3}deg)`,opacity:1,offset:.42},
+      {transform:`translate3d(${t.x-s.x}px,${t.y-s.y}px,0) scale(.97) rotate(${t.x>=s.x?7:-7}deg)`,opacity:1,offset:.62},
+      {transform:`translate3d(${(t.x-s.x)*.35}px,${(t.y-s.y)*.35}px,0)`,opacity:.9,offset:.76},
+      {transform:'translate3d(0,0,0) scale(1)',opacity:0}
+    ],{duration:1150,easing:'cubic-bezier(.2,.76,.16,1)',fill:'forwards'}).finished.then(()=>ghost.remove()).catch(()=>ghost.remove());
+    const sword=glyph(s.x,s.y,'damage','hv-sword-projectile'); sword.animate([
+      {transform:'translate(-50%,-50%) scale(.2) rotate(-35deg)',opacity:0},
+      {transform:`translate(${t.x-s.x}px,${t.y-s.y}px) scale(1.2) rotate(20deg)`,opacity:1,offset:.78},
+      {transform:`translate(${t.x-s.x}px,${t.y-s.y}px) scale(.6) rotate(45deg)`,opacity:0}
+    ],{duration:900,easing:'cubic-bezier(.18,.8,.15,1)',fill:'forwards'});
+    setTimeout(()=>{el(targetUid)?.classList.add('hv-impact-shake');glyph(t.x,t.y,'damage','hv-impact-flare');},760);
+  }
+  function areaDamage(casterUid,targets){
+    const s=point(casterUid);if(!s)return;sound('damage');glyph(s.x,s.y,'damage','hv-area-core');
+    targets.forEach((uid,i)=>{const t=point(uid);if(!t)return;setTimeout(()=>{glyph(t.x,t.y,'damage','hv-impact-flare');el(uid)?.classList.add('hv-impact-shake');},300+i*150);});
+  }
+  function travel(k,casterUid,targetUid){
+    const s=point(casterUid),t=point(targetUid);if(!s||!t)return;
+    const g=glyph(s.x,s.y,k,'hv-travel');g.animate([
+      {transform:'translate(-50%,-50%) scale(.25)',opacity:0},
+      {transform:`translate(${t.x-s.x}px,${t.y-s.y}px) scale(1.15)`,opacity:1,offset:.78},
+      {transform:`translate(${t.x-s.x}px,${t.y-s.y-20}px) scale(.7)`,opacity:0}
+    ],{duration:900,easing:'cubic-bezier(.18,.8,.15,1)',fill:'forwards'}).finished.then(()=>g.remove()).catch(()=>g.remove());
+  }
+  function animateEffect(effect,diff,delay){
+    const k=kindOf(effect), targets=targetIds(effect,diff);
+    setTimeout(()=>{
+      sound(k);
+      if(k==='damage'){
+        const area=['allEnemies','allEnemiesFieldAndHand','enemyDefensor','enemyAtacante','enemySuporte'].includes(effect?.target)||targets.length>1;
+        area?areaDamage(diff.casterUid,targets):targets[0]&&singleStrike(diff.casterUid,targets[0]);
+      } else if(k==='heal' || k==='buff') targets.forEach((uid,i)=>setTimeout(()=>{travel(k,diff.casterUid,uid);glyph(point(uid).x,point(uid).y,k,'hv-target-burst');},i*160));
+      else if(k==='shield') targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){el(uid)?.classList.add('hv-shield-pulse');glyph(t.x,t.y,k,'hv-shield-dome');}},i*140));
+      else if(k==='status') targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){el(uid)?.classList.add('hv-status-pulse');glyph(t.x,t.y,k,'hv-status-rune');}},i*150));
+      else if(k==='summon'){const ids=Object.keys(diff.after||{}).filter(uid=>!(diff.before||{})[uid]);ids.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){glyph(t.x,t.y,k,'hv-summon-burst');el(uid)?.classList.add('hv-summon-enter');}},250+i*180));}
+      else if(k==='sacrifice'){const source=point(diff.casterUid);const ids=Object.keys(diff.before||{}).filter(uid=>!(diff.after||{})[uid]);ids.forEach((uid,i)=>{const t=point(uid);if(!source||!t)return;setTimeout(()=>{glyph(t.x,t.y,k,'hv-sacrifice-burst');glyph(source.x,source.y,k,'hv-sacrifice-core');},i*180);});}
+      else if(k==='revive'){targets.forEach((uid,i)=>setTimeout(()=>{const t=point(uid);if(t){glyph(t.x,t.y,k,'hv-revive-rune');el(uid)?.classList.add('hv-revive-enter');}},i*160));}
+      else if(k==='field'){const s=document.querySelector('.hv-battle-stage')?.getBoundingClientRect();if(s){glyph(s.left+s.width/2,s.top+s.height/2,k,'hv-field-weather');document.querySelector('.hv-battle-stage')?.classList.add('hv-field-wave');}}
+      else if(k==='taunt') targets.forEach(uid=>{const t=point(uid);if(t){el(uid)?.classList.add('hv-taunt-shake');glyph(t.x,t.y,k,'hv-taunt-mark');}});
+      else if(k==='move') targets.forEach(uid=>{const t=point(uid);if(t)glyph(t.x,t.y,k,'hv-move-arrow');});
+      else if(k==='delayed'){const s=point(diff.casterUid);if(s)glyph(s.x,s.y,k,'hv-delayed-rune');}
+    },delay);
+  }
+  function playCombatSequence(diff){
+    if(!diff)return; const caster=getUnit(diff.casterUid),ability=CARD_DB[caster?.cardId]?.abilities?.[diff.abilityIdx]; if(!caster||!ability)return;
+    const first=kindOf(ability.effects?.[0]); actionCue(diff.casterUid,first);
+    let delay=0; for(const effect of ability.effects||[]){animateEffect(effect,diff,delay);delay+=STEP_MS;}
+  }
+  function installPacing(){
+    if(pacingInstalled||typeof window.autoResolveStep!=='function')return; pacingInstalled=true; const original=window.autoResolveStep;
+    window.autoResolveStep=function pacedResolve(){window.setTimeout(()=>{if(window.state?.phase==='resolve')original();},WAIT_BETWEEN_ACTIONS);};
+  }
+  window.playCombatSequence=playCombatSequence;
+  installPacing(); window.addEventListener('load',installPacing,{once:true});
 })();
