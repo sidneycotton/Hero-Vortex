@@ -1,0 +1,209 @@
+name: Clean Hero Vortex Repository
+on:
+  push:
+    branches: [cleanup/full-repo]
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[repo-clean]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Consolidate card data and mechanics
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const { execFileSync } = require('child_process');
+
+          function balanced(src, start, open, close) {
+            let depth = 0, quote = null, escaped = false;
+            for (let i = start; i < src.length; i++) {
+              const c = src[i];
+              if (quote) {
+                if (escaped) escaped = false;
+                else if (c === '\\') escaped = true;
+                else if (c === quote) quote = null;
+                continue;
+              }
+              if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+              if (c === open) depth++;
+              else if (c === close) {
+                depth--;
+                if (depth === 0) return i + 1;
+              }
+            }
+            throw new Error('Unclosed ' + open + ' block');
+          }
+
+          function parseLiteral(text) {
+            return vm.runInNewContext('(' + text + ')');
+          }
+
+          function extractArray(src, names=['C','CARDS']) {
+            for (const name of names) {
+              const marker = `const ${name} = [`;
+              const start = src.indexOf(marker);
+              if (start < 0) continue;
+              const open = start + marker.length - 1;
+              const end = balanced(src, open, '[', ']');
+              return { value: parseLiteral(src.slice(open, end)), start, end };
+            }
+            throw new Error('Card array not found');
+          }
+
+          function extractObject(src, name) {
+            const marker = `const ${name} = {`;
+            const start = src.indexOf(marker);
+            if (start < 0) throw new Error(`Missing ${name}`);
+            const open = start + marker.length - 1;
+            const end = balanced(src, open, '{', '}');
+            return { value: parseLiteral(src.slice(open, end)), start, end };
+          }
+
+          function stripArray(src) {
+            const a = extractArray(src);
+            return src.slice(0, a.start) + src.slice(a.end);
+          }
+
+          function stripInjection(src) {
+            src = src.replace(/\n?\s*function inject\([\s\S]*?const t\s*=\s*setInterval\(\(\)\s*=>\s*\{if\(inject\(\)\)clearInterval\(t\)\},100\);/m, '\n');
+            return src;
+          }
+
+          function addCards(db, cards, source) {
+            const byId = new Map(db.cards.map(c => [c.id, c]));
+            for (const card of cards) {
+              if (!card || !card.id) throw new Error(`${source}: card without id`);
+              byId.set(card.id, card);
+            }
+            db.cards = [...byId.values()];
+          }
+
+          const db = JSON.parse(fs.readFileSync('cards.json', 'utf8'));
+          if (!Array.isArray(db.cards)) throw new Error('cards.json.cards must be an array');
+
+          const mechanics = [];
+
+          // 1) New defenders: explicit objects + mechanics.
+          {
+            let src = fs.readFileSync('new-defenders.js', 'utf8');
+            const names = ['KALANY','DRAAK','DAXEN','LIZ','MOLDAR','URAGI','VENTROX'];
+            addCards(db, names.map(n => extractObject(src, n).value), 'new-defenders.js');
+            for (const n of names) {
+              const o = extractObject(src, n);
+              src = src.slice(0, o.start) + src.slice(o.end);
+            }
+            src = src.replace(/\n\s*const ALL_NEW\s*=\s*\[[\s\S]*?\];\s*/m, '\n');
+            src = src.replace(/\n\s*const nativeFetch\s*=\s*window\.fetch\.bind\(window\);[\s\S]*?\n\s*\};\s*\n/m, '\n');
+            src = src.replace(/DRAAK\.name/g, '(CARD_DB.draak?.name || "Dra\'ak, a Sombra da Morte")');
+            mechanics.push('/* ===== CONSOLIDATED: new-defenders.js ===== */\n' + src.trim());
+          }
+
+          // 2) Advanced defenders.
+          {
+            let src = fs.readFileSync('more-defenders.js', 'utf8');
+            const a = extractArray(src);
+            addCards(db, a.value, 'more-defenders.js');
+            src = stripArray(src);
+            src = stripInjection(src);
+            mechanics.push('/* ===== CONSOLIDATED: more-defenders.js ===== */\n' + src.trim());
+          }
+
+          // 3) Amelia batch: recover the last complete card definitions from git history,
+          // while keeping the corrected Attacker role used by the live batch.
+          {
+            const historical = execFileSync('git', ['show', '1ae4d23f74f3eb6224e7e67f9fb53b06e7327493:new-defenders-2-data.js'], {encoding:'utf8'});
+            const a = extractArray(historical);
+            const cards = a.value.map(c => ({...c, role:'atacante'}));
+            addCards(db, cards, 'new-defenders-2-data.js@1ae4d23f');
+            let src = fs.readFileSync('new-defenders-2.js', 'utf8');
+            src = stripArray(src);
+            src = stripInjection(src);
+            mechanics.push('/* ===== CONSOLIDATED: new-defenders-2.js ===== */\n' + src.trim());
+          }
+
+          // 4) Attacker batch 4.
+          {
+            let src = fs.readFileSync('new-attackers-4.js', 'utf8');
+            const a = extractArray(src);
+            addCards(db, a.value, 'new-attackers-4.js');
+            src = stripArray(src);
+            src = stripInjection(src);
+            mechanics.push('/* ===== CONSOLIDATED: new-attackers-4.js ===== */\n' + src.trim());
+          }
+
+          // 5) Support batch 1.
+          {
+            let src = fs.readFileSync('new-supports-1.js', 'utf8');
+            const a = extractArray(src);
+            addCards(db, a.value, 'new-supports-1.js');
+            src = stripArray(src);
+            src = stripInjection(src);
+            mechanics.push('/* ===== CONSOLIDATED: new-supports-1.js ===== */\n' + src.trim());
+          }
+
+          // 6) Existing defender expansion was mechanics-only.
+          mechanics.push('/* ===== CONSOLIDATED: defender-expansion.js ===== */\n' + fs.readFileSync('defender-expansion.js', 'utf8').trim());
+
+          const ids = db.cards.map(c => c.id);
+          if (ids.length !== new Set(ids).size) throw new Error('Duplicate card ids after consolidation');
+          if (!ids.length) throw new Error('No cards remain');
+          fs.writeFileSync('cards.json', JSON.stringify(db, null, 2) + '\n');
+
+          let engine = fs.readFileSync('engine.js', 'utf8');
+          engine += '\n\n' + mechanics.join('\n\n') + '\n';
+          fs.writeFileSync('engine.js', engine);
+          console.log(`Consolidated ${db.cards.length} cards.`);
+          NODE
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open('cards.json'))
+          ids=[c['id'] for c in d['cards']]
+          assert len(ids)==len(set(ids)), 'duplicate card ids'
+          assert len(ids) >= 40, f'unexpectedly low card count: {len(ids)}'
+          print('cards.json:', len(ids), 'cards')
+          PY
+
+          node --check engine.js
+          node --check app.js
+          for f in *.js; do node --check "$f" >/dev/null; done
+
+          python3 - <<'PY'
+          p='index.html'
+          s=open(p).read()
+          legacy=['new-defenders.js','more-defenders.js','new-defenders-2.js','new-attackers-4.js','new-supports-1.js','defender-expansion.js']
+          for name in legacy:
+              import re
+              s=re.sub(r'\n?<script src="'+re.escape(name)+r'\?v=[^"]+"></script>', '', s)
+          open(p,'w').write(s)
+          PY
+
+          rm -f new-defenders.js more-defenders.js new-defenders-2.js new-attackers-4.js new-supports-1.js defender-expansion.js
+          rm -f cards/attackers/attackers-01.js cards/attackers/attackers-02.js cards/defenders/defenders-01.js cards/defenders/defenders-02.js cards/defenders/defenders-03.js cards/supports/supports-01.js
+          rm -f .github/workflows/cleanup-repo.yml
+          find cards -type f -delete 2>/dev/null || true
+          find cards -type d -empty -delete 2>/dev/null || true
+          find .github -type d -empty -delete 2>/dev/null || true
+
+          if grep -R -n --exclude-dir=.git -E 'new-defenders\.js|more-defenders\.js|new-defenders-2\.js|new-attackers-4\.js|new-supports-1\.js|defender-expansion\.js' .; then
+            echo 'Legacy runtime references remain.'
+            exit 1
+          fi
+          if grep -R -n --exclude-dir=.git 'function inject' .; then
+            echo 'Legacy card injection code remains.'
+            exit 1
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Consolidate cards and mechanics into core files [repo-clean]'
+          git push origin cleanup/full-repo
