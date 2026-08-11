@@ -6,6 +6,7 @@
   let timer = null;
   let activeCard = null;
   let activePointerId = null;
+  let holdTriggered = false;
   const suppressClick = new WeakSet();
 
   function getCard(target){
@@ -21,15 +22,17 @@
     if (activeCard) activeCard.classList.remove('hv-long-pressing');
     activeCard = null;
     activePointerId = null;
+    holdTriggered = false;
   }
 
   function activate(card){
     if (!card || card.disabled || card.classList.contains('is-disabled')) return;
 
+    holdTriggered = true;
     card.classList.remove('hv-long-pressing');
     suppressClick.add(card);
 
-    /* Dispatch a real bubbling click event instead of HTMLElement.click().
+    /* Dispatch a bubbling click event instead of HTMLElement.click().
        This reaches both direct card listeners and delegated listeners used by
        the deckbuilder's render code. */
     card.dispatchEvent(new MouseEvent('click', {
@@ -40,7 +43,8 @@
       buttons: 0,
     }));
 
-    /* The browser may still emit the physical click after pointerup. */
+    /* If a browser/platform does not emit a follow-up click, don't leave the
+       suppression flag around long enough to affect a later normal click. */
     window.setTimeout(() => suppressClick.delete(card), 500);
   }
 
@@ -52,12 +56,13 @@
     clearHold();
     activeCard = card;
     activePointerId = e.pointerId;
+    holdTriggered = false;
     card.classList.add('hv-long-pressing');
 
     timer = window.setTimeout(() => {
       if (activeCard === card) {
-        activate(card);
         timer = null;
+        activate(card);
       }
     }, HOLD_MS);
   }, {passive:true});
@@ -65,14 +70,12 @@
   document.addEventListener('pointerup', function(e){
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     const card = activeCard;
-    const wasHolding = !!timer;
+    const didHold = holdTriggered;
     clearHold();
 
-    /* If the hold already performed the action, consume the browser's normal
-       click so the card is not added/removed twice. */
-    if (card && !wasHolding && suppressClick.has(card)) {
-      suppressClick.delete(card);
-    }
+    /* Keep the suppression flag when the hold already activated the card.
+       The next trusted click is the browser's follow-up click. */
+    if (card && !didHold) suppressClick.delete(card);
   }, {passive:true});
 
   document.addEventListener('pointercancel', clearHold, {passive:true});
