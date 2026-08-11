@@ -530,25 +530,180 @@ const ROLE_ICON = { defensor: '🛡️', atacante: '⚔️', suporte: '✨', tok
 
 function unitCardHTML(u, opts = {}) {
   const { selectable, showAbilities, abilitiesLocked } = opts;
+  const def = CARD_DB[u.cardId] || {};
+
   const deadClass = u.dead ? 'unit-dead' : '';
   const selClass = selectable ? 'unit-selectable' : '';
   const spawnClass = u.justSpawned ? 'hv-spawned' : '';
+
   if (u.justSpawned) u.justSpawned = false;
-  const pct = Math.max(0, Math.min(100, (u.life / u.maxLife) * 100));
+
+  const pct = Math.max(
+    0,
+    Math.min(100, (u.life / u.maxLife) * 100)
+  );
+
+  // Current shield
+  const shieldValue = u.shield
+    ? Math.max(0, Number(u.shield.value) || 0)
+    : 0;
+
+  const shieldDuration = u.shield
+    ? Math.max(0, Number(u.shield.duration) || 0)
+    : 0;
+
+  // Passive ability from cards.json
+  const passiveText =
+    typeof def.passive === 'string'
+      ? def.passive.trim()
+      : '';
+
   return `
-    <div class="unit-card ${deadClass} ${selClass} ${spawnClass}" data-uid="${u.uid}" onclick="handleUnitClick('${u.uid}')">
-      <div class="hv-float-layer" data-float-for="${u.uid}"></div>
+    <div
+      class="unit-card ${deadClass} ${selClass} ${spawnClass}"
+      data-uid="${u.uid}"
+      onclick="handleUnitClick('${u.uid}')"
+    >
+
+      <div
+        class="hv-float-layer"
+        data-float-for="${u.uid}"
+      ></div>
+
       <div class="unit-header-line">
-        <span class="unit-heart" title="Vida">❤️<span class="unit-heart-value">${Math.max(0,u.life)}</span></span>
-        <span class="unit-role-icon role-${u.role}" title="${roleLabel(u.role)}">${ROLE_ICON[u.role] || ''}</span>
-        <span class="unit-name">${u.name}</span>
-        ${u.shield ? `<span class="unit-shield-inline">🛡️${u.shield.value}</span>` : ''}
+
+        <span
+          class="unit-heart"
+          title="Vida"
+        >
+          ❤️
+          <span class="unit-heart-value">
+            ${Math.max(0, u.life)}
+          </span>
+        </span>
+
+        <span
+          class="unit-role-icon role-${u.role}"
+          title="${roleLabel(u.role)}"
+        >
+          ${ROLE_ICON[u.role] || ''}
+        </span>
+
+        <span class="unit-name">
+          ${u.name}
+        </span>
+
       </div>
-      <div class="unit-lifebar"><div class="unit-lifebar-fill" style="width:${pct}%"></div></div>
-      <div class="unit-maxlife-sub">${Math.max(0,u.life)} / ${u.maxLife}</div>
-      ${u.statuses.length ? `<div class="unit-statuses">${u.statuses.map(s => `<span class="status-chip">${statusLabel(s)}</span>`).join('')}</div>` : ''}
-      ${Object.keys(u.counters).length ? `<div class="unit-counters">${Object.entries(u.counters).map(([k,v]) => `<span class="counter-chip">${k}: ${v}</span>`).join('')}</div>` : ''}
-      ${u.dead ? '<div class="unit-fallen">💀 Derrotado</div>' : (showAbilities ? abilitiesHTML(u, { locked: abilitiesLocked }) : '')}
+
+      <div class="unit-lifebar">
+        <div
+          class="unit-lifebar-fill"
+          style="width:${pct}%"
+        ></div>
+      </div>
+
+      <div class="unit-maxlife-sub">
+        ${Math.max(0, u.life)} / ${u.maxLife}
+      </div>
+
+      ${
+        shieldValue > 0
+          ? `
+            <div
+              class="unit-shield-panel"
+              title="Escudo atual"
+            >
+              <span class="unit-shield-icon">
+                🛡️
+              </span>
+
+              <span class="unit-shield-label">
+                ESCUDO
+              </span>
+
+              <strong class="unit-shield-value">
+                ${shieldValue}
+              </strong>
+
+              ${
+                shieldDuration > 0
+                  ? `
+                    <span class="unit-shield-duration">
+                      ${shieldDuration}
+                      turno${shieldDuration === 1 ? '' : 's'}
+                    </span>
+                  `
+                  : ''
+              }
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        passiveText
+          ? `
+            <div class="unit-passive-panel">
+
+              <div class="unit-passive-title">
+                ✦ PASSIVA
+              </div>
+
+              <div class="unit-passive-text">
+                ${passiveText}
+              </div>
+
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        u.statuses.length
+          ? `
+            <div class="unit-statuses">
+              ${u.statuses
+                .map(
+                  s =>
+                    `<span class="status-chip">
+                      ${statusLabel(s)}
+                    </span>`
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        Object.keys(u.counters).length
+          ? `
+            <div class="unit-counters">
+              ${Object.entries(u.counters)
+                .map(
+                  ([k, v]) =>
+                    `<span class="counter-chip">
+                      ${k}: ${v}
+                    </span>`
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        u.dead
+          ? '<div class="unit-fallen">💀 Derrotado</div>'
+          : (
+              showAbilities
+                ? abilitiesHTML(u, {
+                    locked: abilitiesLocked
+                  })
+                : ''
+            )
+      }
+
     </div>
   `;
 }
