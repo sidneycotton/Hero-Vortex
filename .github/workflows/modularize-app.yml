@@ -1,0 +1,127 @@
+name: Modularize Hero Vortex App
+on:
+  push:
+    branches: [refactor/modularize-app]
+permissions:
+  contents: write
+jobs:
+  modularize:
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[app-modularized]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Split app.js into organized modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path('app.js').read_text()
+          markers = {
+            'declare': '// ===================== FASE DE DECLARAÇÃO =====================',
+            'bot': '// ===================== BOT =====================',
+            'resolve': '// ===================== RESOLUÇÃO =====================',
+            'render': '// ===================== RENDER =====================',
+            'deck': '// ===================== DECKBUILDER =====================',
+          }
+          for marker in markers.values():
+            if marker not in src: raise SystemExit(f'Missing section marker: {marker}')
+          pos={k:src.index(v) for k,v in markers.items()}
+          header=src[:pos['declare']]
+          declare=src[pos['declare']:pos['bot']]
+          bot=src[pos['bot']:pos['resolve']]
+          resolve=src[pos['resolve']:pos['render']]
+          render=src[pos['render']:pos['deck']]
+          deck=src[pos['deck']:]
+          deck=re.sub(r'\nasync function boot\(\)\{[\s\S]*?\nboot\(\);\s*$', '\n', deck)
+          deck=re.split(r'\n/\* ===== CONSOLIDATED: arena-start-fix\.js ===== \*/', deck, maxsplit=1)[0]
+          # app.js becomes bootstrap + globals only; all behavioral sections move out.
+          app_header='''// Hero Vortex application bootstrap and shared runtime globals.\n\nlet CARD_DB = {};\nlet state = null;\nconst ROLES = ['defensor', 'atacante', 'suporte'];\n\nasync function boot() {\n  try {\n    const res = await fetch('cards.json');\n    if (!res.ok) throw new Error(`cards.json HTTP ${res.status}`);\n    const data = await res.json();\n    if (!Array.isArray(data.cards)) throw new Error('cards.json.cards must be an array');\n    CARD_DB = Object.fromEntries(data.cards.map(card => [card.id, card]));\n    if (typeof renderTeamSelect !== 'function') throw new Error('renderTeamSelect is not available');\n    renderTeamSelect();\n  } catch (error) {\n    console.error('[Hero Vortex] Boot failed:', error);\n    const app = document.getElementById('app');\n    if (app) app.innerHTML = `<div class=\"pass-screen\"><h1 class=\"game-title\">Hero Vortex</h1><p class=\"setup-sub\">Não foi possível carregar as cartas. Recarregue a página.</p></div>`;\n  }\n}\n\nwindow.addEventListener('DOMContentLoaded', () => setTimeout(boot, 0), { once: true });\n'''
+          Path('app.js').write_text(app_header)
+          Path('js/core').mkdir(parents=True, exist_ok=True)
+          Path('js/ui').mkdir(parents=True, exist_ok=True)
+          Path('js/core/game-state.js').write_text(header.replace('// ===================== ESTADO DO JOGO =====================','// ===================== ESTADO DO JOGO =====================').strip()+'\n')
+          Path('js/core/game-flow.js').write_text((declare+'\n'+bot+'\n'+resolve).strip()+'\n')
+          Path('js/ui/render.js').write_text(render.strip()+'\n')
+          Path('js/ui/deckbuilder-screen.js').write_text(deck.strip()+'\n')
+          PY
+
+          cat > js/README.md <<'EOF'
+          # Hero Vortex JavaScript architecture
+
+          `app.js` is the bootstrap and shared runtime entrypoint.
+
+          `core/` contains state and turn/phase flow.
+
+          `ui/` contains rendering and player-facing setup screens.
+
+          Root feature modules remain separate when they represent complete systems.
+
+          Hero Vortex intentionally uses regular script loading for compatibility with the existing global API.
+          EOF
+
+          cat > ARCHITECTURE.md <<'EOF'
+          # Hero Vortex Architecture
+
+          ## Data
+          - `cards.json` — single source of truth for card definitions.
+
+          ## Rules
+          - `engine.js` — gameplay mechanics and effect execution.
+
+          ## Core application
+          - `app.js` — bootstrap, shared globals, and card database loading.
+          - `js/core/game-state.js` — units, state primitives, declaration helpers, and shared game-state helpers.
+          - `js/core/game-flow.js` — declarations, bot decisions, combat resolution, turn progression, and win conditions.
+
+          ## UI
+          - `js/ui/render.js` — rendering helpers, card markup, declaration UI, combat board, and visual combat effects.
+          - `js/ui/deckbuilder-screen.js` — deck selection and initial-deployment screens.
+
+          ## Feature systems
+          - `deckbuilder.js` — deckbuilder support system.
+          - `combat-presentation.js` — combat presentation enhancements.
+          - `audio.js` — synthesized music and sound effects.
+
+          ## Styling
+          - `style.css` — application-wide styling and responsive/mobile rules.
+
+          ## Architectural rule
+          Each file should have one clear reason to change. Card data belongs in `cards.json`; rules belong in `engine.js`; application flow belongs in `core/`; UI belongs in `ui/`.
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old='''<script src="engine.js"></script>\n<script src="app.js"></script>\n\n\n<!-- Presentation/UI modules. -->\n<script src="deckbuilder.js?v=2"></script>\n<script src="audio.js?v=3"></script>\n<script src="audio-mode.js?v=1"></script>\n<script src="combat-presentation.js?v=2"></script>\n<script src="arena-start-fix.js?v=2"></script>\n<script src="home-screen-fix.js?v=2"></script>\n<script src="startup-fix.js?v=2"></script>'''
+          new='''<script src="engine.js"></script>\n\n<!-- Shared globals and application modules. -->\n<script src="app.js"></script>\n<script src="js/core/game-state.js"></script>\n<script src="js/core/game-flow.js"></script>\n<script src="js/ui/render.js"></script>\n<script src="js/ui/deckbuilder-screen.js"></script>\n\n<!-- Independent feature systems. -->\n<script src="deckbuilder.js?v=2"></script>\n<script src="audio.js?v=3"></script>\n<script src="combat-presentation.js?v=2"></script>'''
+          if old not in s: raise SystemExit('Unexpected index.html baseline')
+          p.write_text(s.replace(old,new))
+          PY
+
+          for f in app.js js/core/game-state.js js/core/game-flow.js js/ui/render.js js/ui/deckbuilder-screen.js deckbuilder.js combat-presentation.js audio.js engine.js; do node --check "$f" >/dev/null; done
+          python3 - <<'PY'
+          import json
+          d=json.load(open('cards.json'))
+          ids=[c.get('id') for c in d['cards']]
+          assert len(ids)==len(set(ids)) and len(ids)>=53
+          print(f'Validated {len(ids)} cards')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text()
+          required=['engine.js','app.js','js/core/game-state.js','js/core/game-flow.js','js/ui/render.js','js/ui/deckbuilder-screen.js','deckbuilder.js','audio.js','combat-presentation.js']
+          assert all(f'src="{x}' in s for x in required)
+          assert not any(x in s for x in ['arena-start-fix.js','home-screen-fix.js','startup-fix.js','audio-mode.js'])
+          print('index dependency checks passed')
+          PY
+          git add -A
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Modularize app into focused core and UI modules [app-modularized]'
+          git push origin refactor/modularize-app
