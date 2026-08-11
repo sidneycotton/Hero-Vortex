@@ -1,8 +1,7 @@
 /* Hero Vortex synthesized audio: menu/arena music + UI SFX. */
 (() => {
-const css=`#hv-audio-toggle{position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:100000;width:42px;height:42px;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(18,18,22,.82);color:#f5f1e8;display:grid;place-items:center;font-size:20px;line-height:1;box-shadow:0 5px 20px rgba(0,0,0,.35);backdrop-filter:blur(10px);cursor:pointer;touch-action:manipulation}#hv-audio-toggle:active{transform:scale(.92)}.hv-deck-card:active,.hv-target-option:active,.ability-btn:active{transform:translateY(1px) scale(.995)}.hv-battle-stage .hv-motion-card{animation:hvMotionEntry .18s cubic-bezier(.2,.8,.2,1)}@keyframes hvMotionEntry{from{opacity:.35;transform:scale(.94)}to{opacity:1;transform:scale(1)}}`;
-const st=document.createElement('style');st.id='hv-audio-css';st.textContent=css;document.head.appendChild(st);
 let ctx=null,master=null,enabled=true,musicEnabled=true,musicTimer=null,musicGain=null,musicMode='menu',lastMotionAt=0,lastImpactAt=0;
+function icon(on){return on?`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3.5l4.5 4V6l-4.5 4H4Z"/><path d="M15 9.5c1.7 1.7 1.7 3.3 0 5"/><path d="M17.8 7.2c3 3 3 6.6 0 9.6"/></svg>`:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3.5l4.5 4V6l-4.5 4H4Z"/><path d="m16 10 5 5"/><path d="m21 10-5 5"/></svg>`}
 function ensure(){if(!enabled)return null;if(!ctx){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;ctx=new A();master=ctx.createGain();master.gain.value=.055;master.connect(ctx.destination)}if(ctx.state==='suspended')ctx.resume().catch(()=>{});return ctx}
 function tone({freq=440,endFreq=freq,duration=.08,type='sine',volume=.4,delay=0,target=null}){const a=ensure();if(!a)return;const n=a.currentTime+delay,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(freq,n);o.frequency.exponentialRampToValueAtTime(Math.max(35,endFreq),n+duration);g.gain.setValueAtTime(.0001,n);g.gain.exponentialRampToValueAtTime(Math.max(.0001,volume),n+.008);g.gain.exponentialRampToValueAtTime(.0001,n+duration);o.connect(g);g.connect(target||master);o.start(n);o.stop(n+duration+.015)}
 function noise({duration=.12,volume=.35,filter=900,delay=0}){const a=ensure();if(!a)return;const n=a.currentTime+delay,b=a.createBuffer(1,a.sampleRate*duration,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.frequency.value=filter;g.gain.setValueAtTime(volume,n);g.gain.exponentialRampToValueAtTime(.0001,n+duration);s.buffer=b;s.connect(f);f.connect(g);g.connect(master);s.start(n)}
@@ -10,7 +9,7 @@ const sounds={tap:()=>tone({freq:520,endFreq:410,duration:.045,type:'sine',volum
 const tracks={menu:{tempo:720,melody:[261.63,329.63,392,329.63,293.66,349.23,440,349.23,261.63,329.63,392,523.25,392,329.63,293.66,261.63]},arena:{tempo:470,melody:[220,261.63,329.63,293.66,246.94,293.66,369.99,329.63,196,246.94,293.66,369.99,329.63,293.66,246.94,220]}};
 function startMusic(mode=musicMode){const a=ensure();if(!a||!musicEnabled)return;if(mode)musicMode=mode;stopMusic();if(!musicGain){musicGain=a.createGain();musicGain.connect(a.destination)}musicGain.gain.setValueAtTime(musicMode==='arena'?.028:.035,a.currentTime);const tr=tracks[musicMode]||tracks.menu;let i=0;const tick=()=>{if(!musicEnabled||!ctx){musicTimer=null;return}const f=tr.melody[i%tr.melody.length];tone({freq:f,endFreq:f*1.002,duration:tr.tempo/1000*.72,type:'triangle',volume:.11,target:musicGain});if(i%4===0)tone({freq:f/2,endFreq:f/2,duration:tr.tempo/1000,type:'sine',volume:.055,target:musicGain});i++;musicTimer=setTimeout(tick,tr.tempo)};tick()}
 function stopMusic(){if(musicTimer){clearTimeout(musicTimer);musicTimer=null}}
-function installToggle(){if(document.getElementById('hv-audio-toggle'))return;const b=document.createElement('button');b.id='hv-audio-toggle';b.type='button';b.setAttribute('aria-label','Ativar ou desativar som');b.title='Som';b.textContent='🔊';b.addEventListener('click',e=>{e.stopPropagation();const on=window.HVAudio.toggle();b.textContent=on?'🔊':'🔇';if(on){ensure();startMusic()}else stopMusic()});document.body.appendChild(b)}
+function installToggle(){if(document.getElementById('hv-audio-toggle'))return;const b=document.createElement('button');b.id='hv-audio-toggle';b.type='button';b.setAttribute('aria-label','Ativar ou desativar som');b.title='Som';b.innerHTML=icon(enabled);b.addEventListener('click',e=>{e.stopPropagation();const on=window.HVAudio.toggle();b.innerHTML=icon(on);if(on){ensure();startMusic()}else stopMusic()});document.body.appendChild(b)}
 window.HVAudio={play:n=>sounds[n]?.(),toggle:v=>{enabled=v!==undefined?!!v:!enabled;if(!enabled)stopMusic();return enabled},isEnabled:()=>enabled,toggleMusic:v=>{musicEnabled=v!==undefined?!!v:!musicEnabled;if(musicEnabled)startMusic();else stopMusic();return musicEnabled},isMusicEnabled:()=>musicEnabled,startMusic,stopMusic,setMusicMode:m=>{musicMode=m==='arena'?'arena':'menu';if(musicEnabled)startMusic(musicMode)},getMusicMode:()=>musicMode};
 const gesture=()=>{ensure();if(musicEnabled&&!musicTimer)startMusic(musicMode);installToggle()};['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,gesture,{passive:true}));
 installToggle();
@@ -18,27 +17,11 @@ document.addEventListener('click',e=>{if(e.target.closest('.hv-deck-card,.hv-tar
 const observer=new MutationObserver(ms=>{for(const m of ms){if(m.type==='childList')m.addedNodes.forEach(n=>{if(!(n instanceof Element))return;if(n.matches('.hv-motion-card')||n.querySelector('.hv-motion-card')){const now=performance.now();if(now-lastMotionAt>90){lastMotionAt=now;sounds.attack()}}});if(m.type==='attributes'){const e=m.target;if(!(e instanceof Element))continue;const c=e.classList;if(c.contains('hv-hit-reaction')){const now=performance.now();if(now-lastImpactAt>90){lastImpactAt=now;sounds.impact()}}if(c.contains('hv-target-marked'))sounds.target();if(c.contains('hv-defeated')||c.contains('hv-death-reaction'))sounds.defeat()}}});observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 })();
 
-
-/* ===== CONSOLIDATED: audio-mode.js ===== */
-/* Hero Vortex audio routing: switches the synthesized soundtrack with the active screen. */
+/* Consolidated audio routing: switches the synthesized soundtrack with the active screen. */
 (() => {
   let lastMode = null;
-  function detectMode() {
-    const root = document.getElementById('app');
-    if (!root) return 'menu';
-    return root.querySelector('.hv-battle-screen') ? 'arena' : 'menu';
-  }
-  function sync() {
-    const mode = detectMode();
-    if (mode === lastMode) return;
-    lastMode = mode;
-    if (window.HVAudio?.setMusicMode) window.HVAudio.setMusicMode(mode);
-  }
-  const start = () => {
-    sync();
-    const root = document.getElementById('app');
-    if (root) new MutationObserver(sync).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
-  else start();
+  function detectMode(){const root=document.getElementById('app');if(!root)return'menu';return root.querySelector('.hv-battle-screen')?'arena':'menu';}
+  function sync(){const mode=detectMode();if(mode===lastMode)return;lastMode=mode;if(window.HVAudio?.setMusicMode)window.HVAudio.setMusicMode(mode)}
+  const start=()=>{sync();const root=document.getElementById('app');if(root)new MutationObserver(sync).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']})};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
