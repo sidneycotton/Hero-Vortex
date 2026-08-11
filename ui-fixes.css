@@ -1,0 +1,19 @@
+/* UI fixes: restore the compact home screen and keep the original target-picker proportions. */
+.hv-home{min-height:calc(100vh - 55px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 16px 60px}
+.hv-home .hv-emblem{width:96px;height:96px;display:grid;place-items:center;margin:0 auto 18px;overflow:hidden;filter:drop-shadow(0 8px 22px rgba(0,0,0,.42))}
+.hv-home .hv-emblem svg{display:block;width:96px!important;height:96px!important;max-width:96px!important;max-height:96px!important}
+.hv-home .game-title{margin:0 0 8px}
+.hv-home .setup-sub{margin:0 0 24px}
+.hv-primary-cta{display:flex;justify-content:center}
+.hv-home .btn-primary{min-width:190px;padding:12px 24px;box-shadow:0 8px 24px rgba(0,0,0,.3),0 0 18px rgba(207,168,85,.12)}
+
+/* The target-selection screen should retain the previous, simple card-picker look. */
+.hv-target-overlay{padding:24px 16px 40px;overflow-y:auto}
+.hv-target-grid{grid-template-columns:repeat(auto-fit,minmax(170px,220px));gap:16px;max-width:900px}
+.hv-target-option{min-height:0}
+.hv-target-role{font-size:1.6rem;margin-bottom:6px}
+.hv-target-role .hv-svg-icon{width:1.6em!important;height:1.6em!important;max-width:28px;max-height:28px}
+.hv-target-option .hv-svg-icon{max-width:28px;max-height:28px}
+
+/* Prevent decorative SVGs from inheriting a huge size in compact UI elements. */
+.hv-role-tab-icon .hv-svg-icon,.hv-initial-role-title .hv-svg-icon,.hv-initial-icon .hv-svg-icon{width:16px!important;height:16px!important}
