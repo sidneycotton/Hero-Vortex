@@ -1,10 +1,5 @@
 // ===================== ESTADO DO JOGO =====================
 
-let CARD_DB = {};
-let state = null;
-
-const ROLES = ['defensor', 'atacante', 'suporte'];
-
 function makeUnit(cardId, ownerIdx) {
   const def = CARD_DB[cardId];
   return {
