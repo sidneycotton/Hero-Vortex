@@ -433,42 +433,18 @@ function statusLabel(s) {
   return labels[s.status] || s.status;
 }
 
-function initials(name) {
-  const words = name.replace(/[,.]/g, '').split(/\s+/).filter(Boolean);
-  const stop = new Set(['de', 'da', 'do', 'das', 'dos', 'a', 'o', 'e']);
-  const meaningful = words.filter(w => !stop.has(w.toLowerCase()));
-  const pick = (meaningful.length ? meaningful : words).slice(0, 2);
-  return pick.map(w => w[0].toUpperCase()).join('');
-}
-
-const ROLE_EMBLEM = {
-  defensor: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 4.5 5.5v6c0 5 3.2 8.7 7.5 10 4.3-1.3 7.5-5 7.5-10v-6L12 2.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 6.5v11" stroke="currentColor" stroke-width="1.1" opacity="0.6"/></svg>`,
-  atacante: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 18 16 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 5.5 18.5 5.5 18.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18 4.5 19.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16.5" cy="7.5" r="1.1" fill="currentColor"/></svg>`,
-  suporte: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20s-7-4.4-7-9.8C5 7 7.2 5 9.8 5c1 0 2 .4 2.2 1.4C12.2 5.4 13.2 5 14.2 5 16.8 5 19 7 19 10.2 19 15.6 12 20 12 20Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
-  token: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3 14 9 20 9.5 15.3 13.3 17 19.5 12 16 7 19.5 8.7 13.3 4 9.5 10 9 12 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
-};
-
 function unitCardHTML(u, opts = {}) {
   const { selectable, showAbilities } = opts;
   const deadClass = u.dead ? 'unit-dead' : '';
   const selClass = selectable ? 'unit-selectable' : '';
-  const lifeDisplay = Math.max(0, u.life);
   return `
     <div class="unit-card ${deadClass} ${selClass}" data-uid="${u.uid}" onclick="handleUnitClick('${u.uid}')">
-      <div class="unit-frame-top">
-        <span class="unit-name">${u.name}</span>
+      <div class="unit-role-tag role-${u.role}">${roleLabel(u.role)}</div>
+      <div class="unit-name">${u.name}</div>
+      <div class="unit-life-bar">
+        <div class="unit-life-fill" style="width:${Math.max(0,(u.life/u.maxLife)*100)}%"></div>
+        <span class="unit-life-text">${Math.max(0,u.life)} / ${u.maxLife}${u.shield ? ` 🛡️${u.shield.value}` : ''}</span>
       </div>
-      <div class="unit-portrait-wrap">
-        <div class="unit-life-heart">
-          <svg viewBox="0 0 24 24" class="heart-icon"><path d="M12 20.5s-7.6-4.6-10.3-9.6C.2 8 1.4 4.8 4.6 4c2-.5 4 .2 5.4 2 .5.6 1.4.6 1.9 0 1.4-1.8 3.4-2.5 5.4-2 3.2.8 4.4 4 3 6.9-2.7 5-10.3 9.6-10.3 9.6Z"/></svg>
-          <span class="heart-value">${lifeDisplay}</span>
-        </div>
-        <div class="unit-portrait">
-          <span class="unit-initials">${initials(u.name)}</span>
-        </div>
-        <div class="unit-class-emblem role-${u.role}">${ROLE_EMBLEM[u.role] || ''}</div>
-      </div>
-      <div class="unit-maxlife">${lifeDisplay} / ${u.maxLife}${u.shield ? ` 🛡️${u.shield.value}` : ''}</div>
       ${u.statuses.length ? `<div class="unit-statuses">${u.statuses.map(s => `<span class="status-chip">${statusLabel(s)}</span>`).join('')}</div>` : ''}
       ${Object.keys(u.counters).length ? `<div class="unit-counters">${Object.entries(u.counters).map(([k,v]) => `<span class="counter-chip">${k}: ${v}</span>`).join('')}</div>` : ''}
       ${u.dead ? '<div class="unit-fallen">💀 Derrotado</div>' : (showAbilities ? abilitiesHTML(u) : '')}
