@@ -10,10 +10,7 @@ function advanceDeclareQueue() {
     const uid = state.pendingQueue[state.pendingIndex], unit = getUnit(uid);
     if (!unit || unit.dead) { state.pendingIndex++; continue; }
     const avail = availableAbilities(unit);
-    if (!avail.length) {
-      logMsg(`${unit.name} está com tudo em recarga e passa a vez.`);
-      state.declarations[state.declaring][uid] = null; state.pendingIndex++; continue;
-    }
+    if (!avail.length) { logMsg(`${unit.name} está com tudo em recarga e passa a vez.`); state.declarations[state.declaring][uid] = null; state.pendingIndex++; continue; }
     state.pendingUnit = uid; render(); return;
   }
   state.pendingUnit = null; render();
@@ -21,199 +18,64 @@ function advanceDeclareQueue() {
 function playerChooseAbility(abilityIdx) {
   const uid = state.pendingUnit, unit = getUnit(uid), ability = CARD_DB[unit.cardId].abilities[abilityIdx];
   if (!unit || !ability || !availableAbilities(unit).some(a => a.idx === abilityIdx)) return;
-  const needsTarget = ability.effects.some(e => ['chooseAlly', 'chooseEnemy', 'chooseAllyNotMovedYet'].includes(e.target));
-  if (needsTarget) { state.choosingTargetFor = { uid, abilityIdx }; renderTargetOverlay(); }
-  else commitDeclaration(uid, abilityIdx, null);
+  const needsTarget = ability.effects.some(e => ['chooseAlly','chooseEnemy','chooseAllyNotMovedYet'].includes(e.target));
+  if (needsTarget) { state.choosingTargetFor = { uid, abilityIdx }; renderTargetOverlay(); } else commitDeclaration(uid, abilityIdx, null);
 }
 function isValidTargetForCurrentSelection(target) {
-  const selection = state.choosingTargetFor;
-  if (!selection || !target || target.dead) return false;
-  const caster = getUnit(selection.uid);
-  if (!caster) return false;
-  const ability = CARD_DB[caster.cardId]?.abilities?.[selection.abilityIdx];
-  if (!ability) return false;
-  const effects = ability.effects || [];
-  const wantsEnemy = effects.some(e => e.target === 'chooseEnemy');
-  const wantsAlly = effects.some(e => ['chooseAlly', 'chooseAllyNotMovedYet'].includes(e.target));
-  const wantsUnmoved = effects.some(e => e.target === 'chooseAllyNotMovedYet');
-  const ownTeam = allUnitsOf(caster.owner);
-  const enemyTeam = enemyTeamOf(caster);
-  const isAlly = ownTeam.some(u => u.uid === target.uid);
-  const isEnemy = enemyTeam.some(u => u.uid === target.uid);
-  if (wantsEnemy && !isEnemy) return false;
-  if (wantsAlly && !isAlly) return false;
-  if (!wantsEnemy && !wantsAlly) return false;
-  if (wantsUnmoved) {
-    const decl = state.declarations[state.declaring] || {};
-    if (decl[target.uid] !== undefined) return false;
-  }
+  const selection = state.choosingTargetFor; if (!selection || !target || target.dead) return false;
+  const caster = getUnit(selection.uid); if (!caster) return false;
+  const ability = CARD_DB[caster.cardId]?.abilities?.[selection.abilityIdx]; if (!ability) return false;
+  const effects = ability.effects || [], wantsEnemy = effects.some(e => e.target === 'chooseEnemy'), wantsAlly = effects.some(e => ['chooseAlly','chooseAllyNotMovedYet'].includes(e.target));
+  const ownTeam = allUnitsOf(caster.owner), enemyTeam = enemyTeamOf(caster), isAlly = ownTeam.some(u => u.uid === target.uid), isEnemy = enemyTeam.some(u => u.uid === target.uid);
+  if (wantsEnemy && !isEnemy) return false; if (wantsAlly && !isAlly) return false; if (!wantsEnemy && !wantsAlly) return false;
+  if (effects.some(e => e.target === 'chooseAllyNotMovedYet')) { const decl = state.declarations[state.declaring] || {}; if (decl[target.uid] !== undefined) return false; }
   return true;
 }
-function playerChooseTarget(targetUid) {
-  const { uid, abilityIdx } = state.choosingTargetFor || {};
-  if (!uid) return;
-  const target = getUnit(targetUid), caster = getUnit(uid);
-  if (!target || !caster || !isValidTargetForCurrentSelection(target)) return;
-  state.choosingTargetFor = null; closeTargetOverlay(); commitDeclaration(uid, abilityIdx, targetUid);
+function playerChooseTarget(targetUid) { const {uid,abilityIdx}=state.choosingTargetFor||{}; if(!uid)return; const target=getUnit(targetUid),caster=getUnit(uid); if(!target||!caster||!isValidTargetForCurrentSelection(target))return; state.choosingTargetFor=null; closeTargetOverlay(); commitDeclaration(uid,abilityIdx,targetUid); }
+function cancelTargeting(){state.choosingTargetFor=null;closeTargetOverlay();render();}
+function closeTargetOverlay(){document.getElementById('hvTargetOverlay')?.remove();}
+function renderTargetOverlay(){
+  closeTargetOverlay(); const {uid,abilityIdx}=state.choosingTargetFor,caster=getUnit(uid),ability=CARD_DB[caster.cardId].abilities[abilityIdx];
+  const wantsEnemy=ability.effects.some(e=>e.target==='chooseEnemy'),wantsAlly=ability.effects.some(e=>['chooseAlly','chooseAllyNotMovedYet'].includes(e.target)),wantsUnmoved=ability.effects.some(e=>e.target==='chooseAllyNotMovedYet');
+  let pool=(wantsEnemy?enemyTeamOf(caster):allyTeamOf(caster)).filter(u=>!u.dead); if(wantsUnmoved){const decl=state.declarations[state.declaring]||{};pool=pool.filter(u=>decl[u.uid]===undefined);}
+  const overlay=document.createElement('div');overlay.className='hv-target-overlay';overlay.id='hvTargetOverlay';overlay.innerHTML=`<div class="hv-target-header"><div class="hv-target-title">${caster.name} — escolha o alvo</div><div class="hv-target-sub">${ability.text}</div></div><div class="hv-target-grid">${pool.map(u=>`<div class="hv-target-option ${wantsAlly?'hv-ally-target':''}" data-uid="${u.uid}" tabindex="0" role="button"><div class="hv-target-role">${roleIcon(u.role)}</div><div class="hv-target-name">${u.name}</div><div class="hv-target-life">${svgIcon('heart')} ${Math.max(0,u.life)} / ${u.maxLife}${u.shield&&u.shield.value>0?` · ${svgIcon('shield')} ${u.shield.value}`:''}</div><div class="hv-target-lifebar"><div class="hv-target-lifebar-fill" style="width:${Math.min(100,Math.max(0,(u.life/u.maxLife)*100))}%"></div></div></div>`).join('')}</div><button class="btn-secondary hv-target-cancel" id="hvTargetCancelBtn">Cancelar</button>`;
+  document.body.appendChild(overlay);overlay.querySelectorAll('.hv-target-option').forEach((el,i)=>{el.style.animationDelay=(i*.05)+'s';el.onclick=()=>playerChooseTarget(el.dataset.uid);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')playerChooseTarget(el.dataset.uid)}});document.getElementById('hvTargetCancelBtn').onclick=cancelTargeting;
 }
-function cancelTargeting() { state.choosingTargetFor = null; closeTargetOverlay(); render(); }
-function closeTargetOverlay() { document.getElementById('hvTargetOverlay')?.remove(); }
-function renderTargetOverlay() {
-  closeTargetOverlay();
-  const { uid, abilityIdx } = state.choosingTargetFor, caster = getUnit(uid), ability = CARD_DB[caster.cardId].abilities[abilityIdx];
-  const wantsEnemy = ability.effects.some(e => e.target === 'chooseEnemy');
-  const wantsAlly = ability.effects.some(e => ['chooseAlly','chooseAllyNotMovedYet'].includes(e.target));
-  const wantsUnmoved = ability.effects.some(e => e.target === 'chooseAllyNotMovedYet');
-  let pool = (wantsEnemy ? enemyTeamOf(caster) : allyTeamOf(caster)).filter(u => !u.dead);
-  if (wantsUnmoved) { const decl = state.declarations[state.declaring] || {}; pool = pool.filter(u => decl[u.uid] === undefined); }
-  const overlay = document.createElement('div'); overlay.className = 'hv-target-overlay'; overlay.id = 'hvTargetOverlay';
-  overlay.innerHTML = `
-    <div class="hv-target-header"><div class="hv-target-title">${caster.name} — escolha o alvo</div><div class="hv-target-sub">${ability.text}</div></div>
-    <div class="hv-target-grid">${pool.map(u => `
-      <div class="hv-target-option ${wantsAlly ? 'hv-ally-target' : ''}" data-uid="${u.uid}" tabindex="0" role="button">
-        <div class="hv-target-role">${roleIcon(u.role)}</div><div class="hv-target-name">${u.name}</div>
-        <div class="hv-target-life">${svgIcon('heart')} ${Math.max(0,u.life)} / ${u.maxLife}${u.shield && u.shield.value > 0 ? ` · ${svgIcon('shield')} ${u.shield.value}` : ''}</div>
-        <div class="hv-target-lifebar"><div class="hv-target-lifebar-fill" style="width:${Math.min(100,Math.max(0,(u.life/u.maxLife)*100))}%"></div></div>
-      </div>`).join('')}</div>
-    <button class="btn-secondary hv-target-cancel" id="hvTargetCancelBtn">Cancelar</button>`;
-  document.body.appendChild(overlay);
-  overlay.querySelectorAll('.hv-target-option').forEach((el,i)=>{el.style.animationDelay=(i*.05)+'s';el.onclick=()=>playerChooseTarget(el.dataset.uid);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')playerChooseTarget(el.dataset.uid)}});
-  document.getElementById('hvTargetCancelBtn').onclick=cancelTargeting;
-}
-function commitDeclaration(uid, abilityIdx, targetUid) {
-  state.declarations[state.declaring][uid] = {abilityIdx,targetUid};
-  state.pendingIndex++;
-  state.pendingUnit = null;
-  advanceDeclareQueue();
-}
-function backToPreviousDeclaration() {
-  if (state.choosingTargetFor || state.pendingIndex <= 0) return;
-  state.pendingIndex--;
-  const uid = state.pendingQueue[state.pendingIndex];
-  delete state.declarations[state.declaring][uid];
-  state.pendingUnit = uid;
-  render();
-}
-function confirmDeclarations() {
-  if (state.pendingIndex < state.pendingQueue.length) return;
-  state.pendingUnit = null;
-  finishDeclareForPlayer(state.declaring);
-}
-function finishDeclareForPlayer(playerIdx) {
-  if (playerIdx===0 && !state.vsBot) { showPassDeviceScreen(1); return; }
-  if (playerIdx===0 && state.vsBot) { declareBot(1); beginResolution(); return; }
-  beginResolution();
-}
-function showPassDeviceScreen(nextPlayerIdx) { state.phase='pass-device'; state.nextDeclarer=nextPlayerIdx; render(); }
-function confirmPassDevice() { startDeclarePhaseForPlayer(state.nextDeclarer); }
-
-// ===================== BOT =====================
-function declareBot(playerIdx) {
-  state.declarations[playerIdx]={};
-  for (const unit of allUnitsOf(playerIdx).filter(u=>!u.dead)) {
-    const avail=availableAbilities(unit);
-    if(!avail.length){state.declarations[playerIdx][unit.uid]=null;continue;}
-    const {ab,idx}=avail[Math.floor(Math.random()*avail.length)];
-    let targetUid=null;
-    if(ab.effects.some(e=>['chooseAlly','chooseEnemy','chooseAllyNotMovedYet'].includes(e.target))){
-      const enemy=ab.effects.some(e=>e.target==='chooseEnemy');
-      const pool=(enemy?enemyTeamOf(unit):allyTeamOf(unit)).filter(u=>!u.dead);
-      if(pool.length){pool.sort((a,b)=>getCurrentLife(a)-getCurrentLife(b));targetUid=pool[0].uid;}
-    }
-    state.declarations[playerIdx][unit.uid]={abilityIdx:idx,targetUid};
-  }
-  logMsg(`${state.players[playerIdx].name} declarou suas ações.`);
-}
+function commitDeclaration(uid,abilityIdx,targetUid){state.declarations[state.declaring][uid]={abilityIdx,targetUid};state.pendingIndex++;state.pendingUnit=null;advanceDeclareQueue();}
+function backToPreviousDeclaration(){if(state.choosingTargetFor||state.pendingIndex<=0)return;state.pendingIndex--;const uid=state.pendingQueue[state.pendingIndex];delete state.declarations[state.declaring][uid];state.pendingUnit=uid;render();}
+function confirmDeclarations(){if(state.pendingIndex<state.pendingQueue.length)return;state.pendingUnit=null;finishDeclareForPlayer(state.declaring);}
+function finishDeclareForPlayer(playerIdx){if(playerIdx===0&&!state.vsBot){showPassDeviceScreen(1);return;}if(playerIdx===0&&state.vsBot){declareBot(1);beginResolution();return;}beginResolution();}
+function showPassDeviceScreen(nextPlayerIdx){state.phase='pass-device';state.nextDeclarer=nextPlayerIdx;render();}
+function confirmPassDevice(){startDeclarePhaseForPlayer(state.nextDeclarer);}
+function declareBot(playerIdx){state.declarations[playerIdx]={};for(const unit of allUnitsOf(playerIdx).filter(u=>!u.dead)){const avail=availableAbilities(unit);if(!avail.length){state.declarations[playerIdx][unit.uid]=null;continue;}const {ab,idx}=avail[Math.floor(Math.random()*avail.length)];let targetUid=null;if(ab.effects.some(e=>['chooseAlly','chooseEnemy','chooseAllyNotMovedYet'].includes(e.target))){const enemy=ab.effects.some(e=>e.target==='chooseEnemy');const pool=(enemy?enemyTeamOf(unit):allyTeamOf(unit)).filter(u=>!u.dead);if(pool.length){pool.sort((a,b)=>getCurrentLife(a)-getCurrentLife(b));targetUid=pool[0].uid;}}state.declarations[playerIdx][unit.uid]={abilityIdx:idx,targetUid};}logMsg(`${state.players[playerIdx].name} declarou suas ações.`);}
 
 // ===================== RESOLUÇÃO =====================
-function beginResolution() {
-  state.phase='resolve'; const queue=[];
-  for(let p=0;p<2;p++) for(const [uid,decl] of Object.entries(state.declarations[p])){
-    if(!decl)continue; const unit=getUnit(uid); if(!unit||unit.dead)continue; const ability=CARD_DB[unit.cardId].abilities[decl.abilityIdx];
-    queue.push({uid,abilityIdx:decl.abilityIdx,targetUid:decl.targetUid,speed:ability.speed,life:getCurrentLife(unit)});
-  }
-  queue.sort((a,b)=>(a.speed-b.speed)||(a.life-b.life)); state.resolutionQueue=queue; state.resolutionIdx=0;
-  logMsg(`— Resolvendo turno ${state.turn} —`); beginAutoResolution();
-}
-const HV_STEP_DELAY=1550;
+function beginResolution(){state.phase='resolve';const queue=[];for(let p=0;p<2;p++)for(const [uid,decl] of Object.entries(state.declarations[p])){if(!decl)continue;const unit=getUnit(uid);if(!unit||unit.dead)continue;const ability=CARD_DB[unit.cardId]?.abilities?.[decl.abilityIdx];if(!ability)throw new Error(`beginResolution: habilidade ${decl.abilityIdx} não encontrada para ${unit.cardId}`);queue.push({uid,abilityIdx:decl.abilityIdx,targetUid:decl.targetUid,speed:ability.speed,life:getCurrentLife(unit)});}queue.sort((a,b)=>(a.speed-b.speed)||(a.life-b.life));state.resolutionQueue=queue;state.resolutionIdx=0;logMsg(`— Resolvendo turno ${state.turn} —`);beginAutoResolution();}
 function snapshotUnits(){const map={};for(const u of allUnitsAll())map[u.uid]={life:u.life,shieldValue:u.shield?u.shield.value:0,dead:u.dead,statuses:(u.statuses||[]).map(s=>`${s.status}:${s.value??''}:${s.duration}:${s.startTurn??''}`).sort(),counters:{...(u.counters||{})}};return map;}
-
-async function autoResolveStep(){
-  if(!state||state.phase!=='resolve')return;
-  if(state.resolutionIdx>=state.resolutionQueue.length){finishResolutionPhase();return;}
-
-  const item=state.resolutionQueue[state.resolutionIdx++];
-  const caster=getUnit(item.uid);
-  if(!caster||caster.dead){render();await autoResolveStep();return;}
-
-  const ability=CARD_DB[caster.cardId]?.abilities?.[item.abilityIdx];
-  if(!ability) throw new Error(`Combat resolution: habilidade ${item.abilityIdx} não encontrada para ${caster.cardId}.`);
-
-  const before=snapshotUnits();
-  const preexistingDead=new Set(allUnitsAll().filter(u=>u.dead).map(u=>u.uid));
-  const sourceEl=document.querySelector(`.unit-card[data-uid="${caster.uid}"]`);
-  const geometry={source:null,targets:{}};
-  if(sourceEl){const r=sourceEl.getBoundingClientRect();geometry.source={left:r.left,top:r.top,width:r.width,height:r.height};}
-  for(const u of allUnitsAll()){
-    const el=document.querySelector(`.unit-card[data-uid="${u.uid}"]`);
-    if(el){const r=el.getBoundingClientRect();geometry.targets[u.uid]={x:r.left+r.width/2,y:r.top+r.height/2};}
-  }
-
-  state.hvActiveCast={casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,text:ability.text,casterName:caster.name};
-  render();
-
-  await new Promise(resolve=>setTimeout(resolve,550));
-
-  try {
-    executeAbility(caster,item.abilityIdx,item.targetUid);
-    checkDeaths();
-    checkWinner();
-    const after=snapshotUnits();
-    state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead&&!preexistingDead.has(u.uid)).map(u=>u.uid),geometry};
-    render();
-
-    if(typeof playCombatSequence!=='function') throw new Error('Combat resolution: playCombatSequence não está disponível.');
-    await playCombatSequence(state.hvDiff);
-
-    state.hvActiveCast=null;
-    state.hvDiff=null;
-    if(state.winner!==null){finishResolutionPhase();return;}
-    render();
-    await autoResolveStep();
-  } catch(error) {
-    console.error('[Hero Vortex] Combat resolution interrupted:',error);
-    logMsg(`⚠ Erro na resolução de ${caster.name}: ${error?.message||error}`);
-    state.hvActiveCast=null;
-    state.hvDiff=null;
-    render();
-    throw error;
-  }
-}
+async function autoResolveStep(){if(!state||state.phase!=='resolve')return;if(state.resolutionIdx>=state.resolutionQueue.length){finishResolutionPhase();return;}const item=state.resolutionQueue[state.resolutionIdx++];const caster=getUnit(item.uid);if(!caster||caster.dead){render();await autoResolveStep();return;}const ability=CARD_DB[caster.cardId]?.abilities?.[item.abilityIdx];if(!ability)throw new Error(`Combat resolution: habilidade ${item.abilityIdx} não encontrada para ${caster.cardId}.`);const before=snapshotUnits();const preexistingDead=new Set(allUnitsAll().filter(u=>u.dead).map(u=>u.uid));const sourceEl=document.querySelector(`.unit-card[data-uid="${caster.uid}"]`);const geometry={source:null,targets:{}};if(sourceEl){const r=sourceEl.getBoundingClientRect();geometry.source={left:r.left,top:r.top,width:r.width,height:r.height};}for(const u of allUnitsAll()){const el=document.querySelector(`.unit-card[data-uid="${u.uid}"]`);if(el){const r=el.getBoundingClientRect();geometry.targets[u.uid]={x:r.left+r.width/2,y:r.top+r.height/2;}}}state.hvActiveCast={casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,text:ability.text,casterName:caster.name};render();await new Promise(resolve=>setTimeout(resolve,550));try{executeAbility(caster,item.abilityIdx,item.targetUid);checkDeaths();checkWinner();const after=snapshotUnits();state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead&&!preexistingDead.has(u.uid)).map(u=>u.uid),geometry};render();if(typeof playCombatSequence!=='function')throw new Error('Combat resolution: playCombatSequence não está disponível.');await playCombatSequence(state.hvDiff);state.hvActiveCast=null;state.hvDiff=null;if(state.winner!==null){finishResolutionPhase();return;}render();await autoResolveStep();}catch(error){console.error('[Hero Vortex] Combat resolution interrupted:',error);logMsg(`⚠ Erro na resolução de ${caster.name}: ${error?.message||error}`);state.hvActiveCast=null;state.hvDiff=null;render();throw error;}}
 function beginAutoResolution(){state.hvActiveCast=null;state.hvDiff=null;render();setTimeout(autoResolveStep,500);}
-function executeAbility(caster,abilityIdx,targetUid){
-  const def=CARD_DB[caster.cardId];
-  const ability=def?.abilities?.[abilityIdx];
-  if(!def||!ability) throw new Error(`executeAbility: definição ausente para ${caster?.cardId} / habilidade ${abilityIdx}.`);
-  const chosenTarget=targetUid?getUnit(targetUid):null,allyTeam=allyTeamOf(caster),enemyTeam=enemyTeamOf(caster);
-  const ctx={caster,chosenTarget,allyTeam,enemyTeam,enemyField:enemyTeam,enemyHand:[],lastTarget:chosenTarget,
-    onCreateToken:tokenId=>{const tok=makeUnit(tokenId,caster.owner);tok.justSpawned=true;ownerOf(caster).extraUnits.push(tok);logMsg(`${ownerOf(caster).name} cria uma ${CARD_DB[tokenId].name}.`);},
-    onSacrificeToken:(tokenId,log)=>{const list=ownerOf(caster).extraUnits,idx=list.findIndex(u=>u.cardId===tokenId&&!u.dead);if(idx>=0){list[idx].dead=true;list[idx].life=0;log(`${list[idx].name} é destruída como custo da habilidade.`)}else log(`Nenhuma Máquina de Guerra disponível para sacrificar!`);},
-    onFieldEffect:(effect,duration,log)=>{ownerOf(caster).fieldEffects[effect]=duration;log(`Efeito de campo "${effect}" ativado por ${duration} turno(s).`);},
-    onDelayedEffect:(eff,log)=>log(`Efeito atrasado agendado (resolver em ${eff.delay} turno(s) — acompanhe o log).`),
-    onReviveCopy:(cardId,life,log)=>{const list=ownerOf(caster).extraUnits,dead=list.find(u=>u.cardId===cardId&&u.dead);if(dead){dead.dead=false;dead.life=life;log(`${dead.name} retorna à vida com ${life} de vida!`)}else log(`Nenhuma cópia morta de ${CARD_DB[cardId].name} para reviver.`);}
-  };
-  logMsg(`⚡ ${caster.name} (vel. ${ability.speed}): ${ability.text}`);Engine.runEffects(ability.effects,ctx,logMsg);if(ability.cooldown&&ability.cooldown>0)caster.cooldowns[abilityIdx]=ability.cooldown+1;
-}
-function checkDeaths(){
-  for(const p of state.players){
-    for(const role of ROLES){const slot=p.slots[role];if(slot.active&&slot.active.life<=0&&!slot.active.replaced){slot.active.dead=true;slot.active.replaced=true;logMsg(`${slot.active.name} foi derrotado!`);if(slot.bench.length){const nextId=slot.bench.shift();slot.active=makeUnit(nextId,state.players.indexOf(p));slot.active.justSpawned=true;logMsg(`${p.name} coloca ${slot.active.name} em campo!`);triggerUnitPlayed(slot.active);}else{slot.active=null;logMsg(`${p.name} não tem mais reservas para ${roleLabel(role)} — slot vazio.`)}}}
-    for(const u of p.extraUnits)if(!u.dead&&u.life<=0){u.dead=true;logMsg(`${u.name} foi destruída!`)}
-  }
-}
+function executeAbility(caster,abilityIdx,targetUid){const def=CARD_DB[caster.cardId];const ability=def?.abilities?.[abilityIdx];if(!def||!ability)throw new Error(`executeAbility: definição ausente para ${caster?.cardId} / habilidade ${abilityIdx}.`);const chosenTarget=targetUid?getUnit(targetUid):null,allyTeam=allyTeamOf(caster),enemyTeam=enemyTeamOf(caster);const ctx={caster,chosenTarget,allyTeam,enemyTeam,enemyField:enemyTeam,enemyHand:[],lastTarget:chosenTarget,onCreateToken:tokenId=>{const tok=makeUnit(tokenId,caster.owner);tok.justSpawned=true;ownerOf(caster).extraUnits.push(tok);logMsg(`${ownerOf(caster).name} cria uma ${CARD_DB[tokenId].name}.`);},onSacrificeToken:(tokenId,log)=>{const list=ownerOf(caster).extraUnits,idx=list.findIndex(u=>u.cardId===tokenId&&!u.dead);if(idx>=0){list[idx].dead=true;list[idx].life=0;log(`${list[idx].name} é destruída como custo da habilidade.`)}else log(`Nenhuma Máquina de Guerra disponível para sacrificar!`);},onFieldEffect:(effect,duration,log)=>{ownerOf(caster).fieldEffects[effect]=duration;log(`Efeito de campo "${effect}" ativado por ${duration} turno(s).`);},onDelayedEffect:(eff,log)=>{state.delayedEffects ||= [];state.delayedEffects.push({dueTurn:state.turn+Math.max(1,Number(eff.delay)||1),sourceUid:caster.uid,targetUid:null,effects:JSON.parse(JSON.stringify(eff.effects||[]))});log(`Efeito atrasado agendado para o final do Turno ${state.turn+Math.max(1,Number(eff.delay)||1)}.`);},onReviveCopy:(cardId,life,log)=>{const list=ownerOf(caster).extraUnits,dead=list.find(u=>u.cardId===cardId&&u.dead);if(dead){dead.dead=false;dead.life=life;log(`${dead.name} retorna à vida com ${life} de vida!`)}else log(`Nenhuma cópia morta de ${CARD_DB[cardId]?.name||cardId} para reviver.`);}};logMsg(`⚡ ${caster.name} (vel. ${ability.speed}): ${ability.text}`);Engine.runEffects(ability.effects,ctx,logMsg);if(ability.cooldown&&ability.cooldown>0)caster.cooldowns[abilityIdx]=ability.cooldown+1;}
+function checkDeaths(){for(const p of state.players){for(const role of ROLES){const slot=p.slots[role];if(slot.active&&slot.active.life<=0&&!slot.active.replaced){slot.active.dead=true;slot.active.replaced=true;logMsg(`${slot.active.name} foi derrotado!`);if(slot.bench.length){const nextId=slot.bench.shift();slot.active=makeUnit(nextId,state.players.indexOf(p));slot.active.justSpawned=true;logMsg(`${p.name} coloca ${slot.active.name} em campo!`);triggerUnitPlayed(slot.active);}else{slot.active=null;logMsg(`${p.name} não tem mais reservas para ${roleLabel(role)} — slot vazio.`)}}}for(const u of p.extraUnits)if(!u.dead&&u.life<=0){u.dead=true;logMsg(`${u.name} foi destruída!`)}}}
 function checkWinner(){for(let i=0;i<2;i++){const p=state.players[i];if(ROLES.every(role=>!p.slots[role].active)){state.winner=1-i;logMsg(`🏆 ${state.players[state.winner].name} venceu a partida!`)}}}
-function finishResolutionPhase(){
-  for(const p of state.players){for(const [effect,duration] of Object.entries(p.fieldEffects)){const idx=state.players.indexOf(p);if(effect==='chuva')for(const u of allUnitsOf(idx).filter(u=>!u.dead))Engine.applyHeal(u,10,logMsg);if(effect==='tempestade_de_areia')for(const u of allUnitsOf(1-idx).filter(u=>!u.dead))Engine.applyDamage(u,10,logMsg);p.fieldEffects[effect]=duration-1;if(p.fieldEffects[effect]<=0)delete p.fieldEffects[effect];}}
-  for(const u of allUnitsAll()){if(u.dead)continue;const bleed=u.statuses.find(s=>s.status==='sangramento');if(bleed)Engine.applyDamage(u,bleed.value,logMsg);u.healedThisTurn=false;u.statuses=u.statuses.filter(s=>{if(s.duration===-1)return true;s.duration-=1;return s.duration>0});if(u.shield){u.shield.duration-=1;if(u.shield.duration<=0){logMsg(`O Escudo de ${u.name} expira.`);u.shield=null}}for(const k of Object.keys(u.cooldowns))if(u.cooldowns[k]>0)u.cooldowns[k]--;}
-  checkDeaths();checkWinner();if(state.winner!==null){state.phase='gameover';render();return;}state.turn++;logMsg(`— Fim do turno. Iniciando Turno ${state.turn} —`);showTurnFlash(`TURNO ${state.turn}`,()=>startDeclarePhaseForPlayer(0));
-}
+function finishResolutionPhase(){for(const p of state.players){for(const [effect,duration] of Object.entries(p.fieldEffects)){const idx=state.players.indexOf(p);if(effect==='chuva')for(const u of allUnitsOf(idx).filter(u=>!u.dead))Engine.applyHeal(u,10,logMsg);if(effect==='tempestade_de_areia')for(const u of allUnitsOf(1-idx).filter(u=>!u.dead))Engine.applyDamage(u,10,logMsg);p.fieldEffects[effect]=duration-1;if(p.fieldEffects[effect]<=0)delete p.fieldEffects[effect];}}for(const u of allUnitsAll()){if(u.dead)continue;const bleed=u.statuses.find(s=>s.status==='sangramento');if(bleed)Engine.applyDamage(u,bleed.value,logMsg);u.healedThisTurn=false;u.statuses=u.statuses.filter(s=>{if(s.duration===-1)return true;s.duration-=1;return s.duration>0});if(u.shield){u.shield.duration-=1;if(u.shield.duration<=0){logMsg(`O Escudo de ${u.name} expira.`);u.shield=null}}for(const k of Object.keys(u.cooldowns))if(u.cooldowns[k]>0)u.cooldowns[k]--;}checkDeaths();checkWinner();if(state.winner!==null){state.phase='gameover';render();return;}state.turn++;logMsg(`— Fim do turno. Iniciando Turno ${state.turn} —`);showTurnFlash(`TURNO ${state.turn}`,()=>startDeclarePhaseForPlayer(0));}
 function showTurnFlash(text,onDone){const flash=document.createElement('div');flash.className='hv-turn-flash';flash.innerHTML=`<div class="hv-turn-flash-text">${text}</div>`;document.body.appendChild(flash);setTimeout(()=>{flash.remove();onDone()},1150);}
+
+// ===================== REGRAS CONSOLIDADAS =====================
+const ensureTurnState=()=>{if(!window.state)return;state.delayedEffects ||= [];state.hvForcedActions ||= new Set();state.hvSkipResolution ||= new Set();state.hvActedThisTurn ||= new Set();for(const p of state.players||[]){p.handMaxLifeBonus ||= {};p.handLifeGainThisTurn ||= {};}};
+const handIds=playerIdx=>{const player=state?.players?.[playerIdx];if(!player?.slots)return [];const ids=[];for(const role of (window.ROLES||[]))ids.push(...(player.slots[role]?.bench||[]));return ids;};
+const handCount=playerIdx=>handIds(playerIdx).length;
+const chooseFastestAbility=unit=>{if(!unit||unit.dead)return null;const avail=availableAbilities(unit);if(!avail.length)return null;return avail.reduce((best,current)=>!best||current.ab.speed<best.ab.speed?current:best,null);};
+const chooseTargetForAbility=(unit,ability)=>{if(!ability)return null;const effects=ability.effects||[],enemy=enemyTeamOf(unit).filter(u=>!u.dead),ally=allyTeamOf(unit).filter(u=>!u.dead),byLife=(a,b)=>Engine.getCurrentLife(a)-Engine.getCurrentLife(b);if(effects.some(e=>e.target==='chooseEnemy'))return enemy.sort(byLife)[0]?.uid||null;if(effects.some(e=>e.target==='chooseAllyNotMovedYet'))return ally.filter(u=>!state.hvActedThisTurn?.has(u.uid)).sort(byLife)[0]?.uid||null;if(effects.some(e=>e.target==='chooseAlly'))return ally.sort(byLife)[0]?.uid||null;if(effects.some(e=>e.target==='enemyDefensor'))return enemy.find(u=>u.role==='defensor')?.uid||null;if(effects.some(e=>e.target==='enemyAtacante'))return enemy.find(u=>u.role==='atacante')?.uid||null;if(effects.some(e=>e.target==='enemySuporte'))return enemy.find(u=>u.role==='suporte')?.uid||null;return null;};
+function triggerAbilityNow(unit,abilityIdx,targetUid,skipQueued=false){ensureTurnState();if(!unit||unit.dead)return false;if(state.hvActedThisTurn.has(unit.uid)&&skipQueued)return false;if(skipQueued)state.hvSkipResolution.add(unit.uid);state.hvForcedActions.add(unit.uid);executeAbility(unit,abilityIdx,targetUid);return true;}
+const forceDeclaredMove=unit=>{ensureTurnState();if(!unit||unit.dead||state.hvActedThisTurn.has(unit.uid))return false;const declaration=state.declarations?.[unit.owner]?.[unit.uid];if(declaration)return triggerAbilityNow(unit,declaration.abilityIdx,declaration.targetUid,true);const fastest=chooseFastestAbility(unit);if(!fastest)return false;return triggerAbilityNow(unit,fastest.idx,chooseTargetForAbility(unit,fastest.ab),true);};
+const useFastestAbility=unit=>{ensureTurnState();if(!unit||unit.dead)return false;const fastest=chooseFastestAbility(unit);if(!fastest)return false;return triggerAbilityNow(unit,fastest.idx,chooseTargetForAbility(unit,fastest.ab),true);};
+const nativeMakeUnit=makeUnit;function makeUnit(cardId,ownerIdx){const unit=nativeMakeUnit(cardId,ownerIdx);const bonus=Number(state?.players?.[ownerIdx]?.handMaxLifeBonus?.[cardId]||0),handGain=Number(state?.players?.[ownerIdx]?.handLifeGainThisTurn?.[cardId]||0);if(bonus){unit.maxLife+=bonus;unit.life+=bonus;}unit.lifeGainThisTurn=handGain;unit.damageTakenThisTurn=0;unit.threshold40Triggered=false;unit.threshold20Triggered=false;return unit;}
+const nativeAvailableAbilities=availableAbilities;function availableAbilities(unit){if(unit?.statuses?.some(s=>s.status==='silenced'))return [];return nativeAvailableAbilities(unit);}
+const nativeHeal=Engine.applyHeal;Engine.applyHeal=function(unit,amount,log,source=null){if(!unit||unit.dead)return 0;const before=unit.life,result=nativeHeal(unit,amount,log),healed=Math.max(0,unit.life-before);unit.healedThisTurn=true;if(unit.statuses?.some(s=>s.status==='sangramento')){unit.statuses=unit.statuses.filter(s=>s.status!=='sangramento');log(`${unit.name} recebe cura e deixa de Sangrar.`);}if(!(source?.cardId==='grath'&&unit.cardId==='grath'))unit.lifeGainThisTurn=(unit.lifeGainThisTurn||0)+healed;unit.lastHealAmount=healed;return result??healed;};
+const nativeDamage=Engine.applyDamage;Engine.applyDamage=function(unit,amount,log,source=null){if(unit?.__hvExactDamage!==undefined){const exact=Math.max(0,Number(unit.__hvExactDamage)||0);delete unit.__hvExactDamage;if(!unit.dead){let remaining=exact;if(unit.shield&&unit.shield.value>0){const absorbed=Math.min(unit.shield.value,remaining);unit.shield.value-=absorbed;remaining-=absorbed;log(`${unit.name} absorve ${absorbed} de dano com o Escudo.`);if(unit.shield.value<=0)unit.shield=null;}unit.life-=remaining;if(unit.life<0)unit.life=0;if(unit.life===0)unit.dead=true;if(remaining>0)log(`${unit.name} sofre ${remaining} de dano. (Vida: ${unit.life}/${unit.maxLife})`);unit.damageTakenThisTurn=(unit.damageTakenThisTurn||0)+exact;return exact;}return 0;}const cap=unit?.statuses?.find(s=>s.status==='damageCap'&&(!s.startTurn||state.turn>=s.startTurn));const originalStatuses=unit?.statuses;if(unit?.statuses&&cap===undefined&&unit.statuses.some(s=>s.status==='damageCap'&&s.startTurn&&state.turn<s.startTurn)){unit.statuses=unit.statuses.filter(s=>!(s.status==='damageCap'&&s.startTurn&&state.turn<s.startTurn));const dealt=Engine.applyDamage(unit,amount,log,source);unit.statuses=originalStatuses;return dealt;}let finalAmount=Number(amount)||0;if(source&&unit&&source.statuses?.length){const boost=source.statuses.filter(s=>s.status==='damageBoost').reduce((sum,s)=>sum+(Number(s.value)||0),0);if(boost>0)finalAmount+=boost;}const beforeLife=unit?.life??0,dealt=nativeDamage(unit,finalAmount,log,source);if(unit&&dealt>0){unit.damageTakenThisTurn=(unit.damageTakenThisTurn||0)+dealt;if(unit.cardId==='mularna'&&!unit.dead){if(!unit.threshold40Triggered&&beforeLife>40&&unit.life<=40){unit.threshold40Triggered=true;unit.shield={value:20,duration:2};log(`${unit.name} alcança 40 de Vida e ganha um Escudo de 20.`);}if(!unit.threshold20Triggered&&beforeLife>20&&unit.life<=20){unit.threshold20Triggered=true;unit.shield={value:20,duration:2};log(`${unit.name} alcança 20 de Vida e ganha um Escudo de 20.`);}}}return dealt;};
+const nativeRunEffects=Engine.runEffects;Engine.runEffects=function(effects,ctx,log){ensureTurnState();for(const originalEffect of effects||[]){const eff=originalEffect&&typeof originalEffect==='object'?{...originalEffect}:originalEffect;if(!eff)continue;if(eff.type==='buffMaxLife'&&eff.target==='allAlliesIncludingHand'){nativeRunEffects([{...eff,target:'allAllies'}],ctx,log);const player=state.players[ctx.caster.owner];player.handMaxLifeBonus ||= {};player.handLifeGainThisTurn ||= {};for(const cardId of handIds(ctx.caster.owner)){const value=Number(eff.value||0);player.handMaxLifeBonus[cardId]=(player.handMaxLifeBonus[cardId]||0)+value;player.handLifeGainThisTurn[cardId]=(player.handLifeGainThisTurn[cardId]||0)+value;log(`${CARD_DB[cardId]?.name||cardId}, ainda na mão, ganha +${value} de Vida máxima.`);}continue;}if(eff.type==='dealDamage'&&eff.scaling?.count==='allEnemiesFieldAndHand'){const opponent=1-ctx.caster.owner,fieldCount=(ctx.enemyField||ctx.enemyTeam||[]).filter(u=>!u.dead).length,handBonus=handCount(opponent),adjusted={...eff,base:Number(eff.base||0)+Number(eff.scaling.perUnit||0)*(fieldCount+handBonus),scaling:null};nativeRunEffects([adjusted],ctx,log);ctx.__hvRepeatableDamage=adjusted;continue;}if(eff.type==='dealDamage'||eff.type==='conditionalDamage'){if(eff.type==='dealDamage'&&ctx.caster?.cardId==='grath'&&eff.target==='chooseEnemy')ctx.__grathInitialTargetLife=ctx.chosenTarget?Engine.getCurrentLife(ctx.chosenTarget):null;nativeRunEffects([eff],ctx,log);ctx.__hvRepeatableDamage={...eff};continue;}if(eff.type==='conditionalRepeat'){if(eff.condition&&Engine.checkCondition(eff.condition,ctx)&&ctx.__hvRepeatableDamage)nativeRunEffects([ctx.__hvRepeatableDamage],ctx,log);continue;}if(eff.type==='conditionalDamage'&&ctx.caster?.cardId==='grath'&&eff.condition==='targetLifeGTE:100'){if(Number(ctx.__grathInitialTargetLife||0)>=100)nativeRunEffects([eff],ctx,log);continue;}if(eff.type==='conditionalLifesteal'){const target=ctx.lastTarget,gained=Number(target?.lifeGainThisTurn||0);if(target&&gained>0&&!(ctx.caster.cardId==='grath'&&target.cardId==='grath'))Engine.applyHeal(ctx.caster,gained,log,ctx.caster);continue;}if(eff.type==='moveNow'){for(const target of Engine.resolveTargets(eff.target,ctx).filter(Boolean)){if(forceDeclaredMove(target))log(`${target.name} se move imediatamente!`);}continue;}if(eff.type==='conditionalTrigger'&&eff.trigger==='useCheapestAbility'){const targets=Engine.resolveTargets(eff.target||eff.buff?.target||'allyAtacante',ctx).filter(Boolean);for(const target of targets){if(useFastestAbility(target))log(`${ctx.caster.name} faz ${target.name} usar sua Habilidade mais rápida imediatamente.`);}continue;}if(eff.type==='taunt'){for(const target of Engine.resolveTargets(eff.target,ctx).filter(Boolean)){target.statuses=target.statuses.filter(s=>s.status!=='tauntedBy');target.statuses.push({status:'tauntedBy',value:ctx.caster.uid,duration:1});log(`${ctx.caster.name} Provoca ${target.name}.`);}continue;}if(eff.type==='delayedEffect'){state.delayedEffects ||= [];state.delayedEffects.push({dueTurn:state.turn+Math.max(1,Number(eff.delay)||1),sourceUid:ctx.caster.uid,targetUid:null,effects:JSON.parse(JSON.stringify(eff.effects||[]))});log(`Efeito atrasado de ${ctx.caster.name} agendado para o final do Turno ${state.turn+Math.max(1,Number(eff.delay)||1)}.`);continue;}nativeRunEffects([eff],ctx,log);}};
+const nativeExecuteAbility=executeAbility;function executeAbilityWithTurnState(caster,abilityIdx,targetUid){ensureTurnState();const result=nativeExecuteAbility(caster,abilityIdx,targetUid);if(caster?.uid)state.hvActedThisTurn.add(caster.uid);return result;}executeAbility=executeAbilityWithTurnState;
+function resolveDelayedEffectsForTurn(turn){ensureTurnState();const due=state.delayedEffects.filter(e=>e.dueTurn===turn);state.delayedEffects=state.delayedEffects.filter(e=>e.dueTurn!==turn);for(const job of due){const caster=getUnit(job.sourceUid);if(!caster||caster.dead)continue;const currentTarget=enemyTeamOf(caster).find(u=>!u.dead)||null;if(!currentTarget)continue;const ctx={caster,chosenTarget:currentTarget,allyTeam:allyTeamOf(caster),enemyTeam:enemyTeamOf(caster),enemyField:enemyTeamOf(caster),enemyHand:handIds(caster.owner^1).map(cardId=>({cardId,role:CARD_DB[cardId]?.role,dead:false})),lastTarget:currentTarget,onCreateToken:tokenId=>{const tok=makeUnit(tokenId,caster.owner);tok.justSpawned=true;ownerOf(caster).extraUnits.push(tok);},onSacrificeToken:(tokenId,log)=>{const list=ownerOf(caster).extraUnits,idx=list.findIndex(u=>u.cardId===tokenId&&!u.dead);if(idx>=0){list[idx].dead=true;list[idx].life=0;log(`${list[idx].name} é destruída como custo da habilidade.`);}},onFieldEffect:(effect,duration,log)=>{ownerOf(caster).fieldEffects[effect]=duration;log(`Efeito de campo "${effect}" ativado por ${duration} turno(s).`);},onDelayedEffect:(eff,log)=>{state.delayedEffects.push({dueTurn:state.turn+Math.max(1,Number(eff.delay)||1),sourceUid:caster.uid,targetUid:null,effects:JSON.parse(JSON.stringify(eff.effects||[]))});},onReviveCopy:(cardId,life,log)=>{const dead=ownerOf(caster).extraUnits.find(u=>u.cardId===cardId&&u.dead);if(dead){dead.dead=false;dead.life=life;log(`${dead.name} retorna à vida com ${life} de vida!`);}}};logMsg(`⏳ Efeito atrasado de ${caster.name} resolve agora.`);Engine.runEffects(job.effects,ctx,logMsg);checkDeaths();checkWinner();}}
+const nativeFinishResolutionPhase=finishResolutionPhase;function finishResolutionPhaseConsolidated(){ensureTurnState();resolveDelayedEffectsForTurn(state.turn);for(const p of state.players){for(const [effect,duration] of Object.entries(p.fieldEffects)){const idx=state.players.indexOf(p);if(effect==='chuva')for(const u of allUnitsOf(idx).filter(u=>!u.dead))Engine.applyHeal(u,10,logMsg);if(effect==='tempestade_de_areia')for(const u of allUnitsOf(1-idx).filter(u=>!u.dead))Engine.applyDamage(u,10,logMsg);p.fieldEffects[effect]=duration-1;if(p.fieldEffects[effect]<=0)delete p.fieldEffects[effect];}}for(const u of allUnitsAll()){if(!u.dead){const bleed=u.statuses.find(s=>s.status==='sangramento');if(bleed){u.__hvExactDamage=Number(bleed.value)||0;Engine.applyDamage(u,bleed.value,logMsg);}}if(u.statuses)u.statuses=u.statuses.filter(s=>{if(s.duration===-1)return true;s.duration-=1;return s.duration>0;});if(u.shield){const remaining=u.shield.value;u.shield.duration-=1;if(u.shield.duration<=0){u.shield=null;logMsg(`O Escudo de ${u.name} expira.`);if(u.cardId==='rankorr'&&remaining>0)for(const enemy of enemyTeamOf(u).filter(e=>!e.dead))Engine.applyDamage(enemy,remaining,logMsg,u);}}if(u.dead)continue;for(const k of Object.keys(u.cooldowns))if(u.cooldowns[k]>0)u.cooldowns[k]--; }checkDeaths();checkWinner();if(state.winner!==null){state.phase='gameover';render();return;}for(const u of allUnitsAll()){u.healedThisTurn=false;u.lifeGainThisTurn=0;u.damageTakenThisTurn=0;}for(const p of state.players)p.handLifeGainThisTurn={};state.hvActedThisTurn=new Set();state.hvForcedActions=new Set();state.hvSkipResolution=new Set();state.turn++;logMsg(`— Fim do turno. Iniciando Turno ${state.turn} —`);showTurnFlash(`TURNO ${state.turn}`,()=>startDeclarePhaseForPlayer(0));}finishResolutionPhase=finishResolutionPhaseConsolidated;
+
+ensureTurnState();
