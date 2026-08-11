@@ -1,5 +1,0 @@
-/* Audio feedback stays visual too, so the game never depends on sound alone. */
-.hv-deck-card:active,.hv-target-option:active,.ability-btn:active{transform:translateY(1px) scale(.995)}
-.hv-battle-stage .hv-motion-card{animation:hvMotionEntry .18s cubic-bezier(.2,.8,.2,1)}
-@keyframes hvMotionEntry{from{opacity:.35;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
-.hv-battle-stage .hv-hit-reaction{filter:brightness(1.18)}
