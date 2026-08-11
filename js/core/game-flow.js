@@ -25,6 +25,30 @@ function playerChooseAbility(abilityIdx) {
   if (needsTarget) { state.choosingTargetFor = { uid, abilityIdx }; renderTargetOverlay(); }
   else commitDeclaration(uid, abilityIdx, null);
 }
+function isValidTargetForCurrentSelection(target) {
+  const selection = state.choosingTargetFor;
+  if (!selection || !target || target.dead) return false;
+  const caster = getUnit(selection.uid);
+  if (!caster) return false;
+  const ability = CARD_DB[caster.cardId]?.abilities?.[selection.abilityIdx];
+  if (!ability) return false;
+  const effects = ability.effects || [];
+  const wantsEnemy = effects.some(e => e.target === 'chooseEnemy');
+  const wantsAlly = effects.some(e => ['chooseAlly', 'chooseAllyNotMovedYet'].includes(e.target));
+  const wantsUnmoved = effects.some(e => e.target === 'chooseAllyNotMovedYet');
+  const ownTeam = allUnitsOf(caster.owner);
+  const enemyTeam = enemyTeamOf(caster);
+  const isAlly = ownTeam.some(u => u.uid === target.uid);
+  const isEnemy = enemyTeam.some(u => u.uid === target.uid);
+  if (wantsEnemy && !isEnemy) return false;
+  if (wantsAlly && !isAlly) return false;
+  if (!wantsEnemy && !wantsAlly) return false;
+  if (wantsUnmoved) {
+    const decl = state.declarations[state.declaring] || {};
+    if (decl[target.uid] !== undefined) return false;
+  }
+  return true;
+}
 function playerChooseTarget(targetUid) {
   const { uid, abilityIdx } = state.choosingTargetFor || {};
   if (!uid) return;
