@@ -381,134 +381,57 @@ html, body {
 
 .unit-dead { opacity: 0.45; filter: grayscale(0.8); }
 
-.unit-frame-top {
-  text-align: center;
-  margin-bottom: 8px;
+.unit-role-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  font-family: var(--font-accent);
+  font-weight: 600;
+  border: 1px solid rgba(200,204,214,0.3);
 }
+.role-defensor { color: var(--sapphire-bright); border-color: var(--sapphire-bright); }
+.role-atacante { color: var(--blood-bright); border-color: var(--blood-bright); }
+.role-suporte { color: #a8d9b0; border-color: #a8d9b0; }
+.role-token { color: var(--gold-bright); border-color: var(--gold-bright); }
 
 .unit-name {
   font-family: var(--font-display);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
+  margin-bottom: 8px;
   color: var(--silver-bright);
-  letter-spacing: 0.01em;
 }
 
-/* Retrato central com moldura dupla ouro/prata, como nas cartas físicas */
-.unit-portrait-wrap {
+.unit-life-bar {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  max-width: 168px;
-  margin: 0 auto 10px;
-}
-
-.unit-portrait {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 30%, #55494a 0%, #241c1d 55%, #140f10 100%);
-  border: 3px solid var(--gold);
-  box-shadow:
-    0 0 0 2px var(--marble-dark),
-    0 0 0 5px var(--silver-line),
-    0 0 0 7px var(--marble-dark),
-    inset 0 0 18px rgba(0,0,0,0.6),
-    0 4px 12px rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #17171a;
+  border: 1px solid rgba(0,0,0,0.6);
+  border-radius: 6px;
+  height: 20px;
   overflow: hidden;
+  margin-bottom: 6px;
 }
 
-.unit-portrait::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    conic-gradient(from 0deg, rgba(240,212,138,0.12), transparent 15%, transparent 85%, rgba(240,212,138,0.12));
-  pointer-events: none;
-}
-
-.unit-initials {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 2rem;
-  color: var(--gold-bright);
-  text-shadow: 0 0 12px rgba(240,212,138,0.5), 0 2px 3px #000;
-  letter-spacing: 0.03em;
-  z-index: 1;
-}
-
-/* Coração de vida — canto inferior esquerdo do retrato, fiel à referência */
-.unit-life-heart {
-  position: absolute;
-  left: -6px;
-  bottom: -8px;
-  width: 52px;
-  height: 52px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.heart-icon {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+.unit-life-fill {
   height: 100%;
-  fill: var(--blood-bright);
-  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6)) drop-shadow(0 0 0 2px var(--marble-dark));
-  stroke: var(--marble-dark);
-  stroke-width: 0.6;
+  background: linear-gradient(90deg, var(--blood), var(--blood-bright));
+  transition: width 0.3s ease;
 }
 
-.heart-value {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 0.88rem;
-  color: var(--silver-bright);
-  text-shadow: 0 1px 2px #000;
-  margin-top: 4px;
-}
-
-/* Emblema de classe — canto inferior direito do retrato */
-.unit-class-emblem {
+.unit-life-text {
   position: absolute;
-  right: -6px;
-  bottom: -8px;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  z-index: 2;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--gold);
-  box-shadow: 0 0 0 2px var(--marble-dark), 0 3px 6px rgba(0,0,0,0.5);
-}
-
-.unit-class-emblem svg {
-  width: 22px;
-  height: 22px;
-}
-
-.role-defensor.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #4a6a9c, #22314a); color: var(--sapphire-bright); }
-.role-atacante.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #7a3030, #3a1414); color: #f0a0a0; }
-.role-suporte.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #3f6b4a, #1c2f21); color: #a8d9b0; }
-.role-token.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #7a6633, #3a2f16); color: var(--gold-bright); }
-
-.unit-maxlife {
-  text-align: center;
+  font-size: 0.72rem;
   font-family: var(--font-accent);
   font-weight: 600;
-  font-size: 0.82rem;
-  color: var(--silver);
-  margin-bottom: 8px;
+  text-shadow: 0 1px 2px #000;
 }
 
 .unit-statuses, .unit-counters {
