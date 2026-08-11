@@ -89,3 +89,50 @@ function checkDeaths(){for(const p of state.players){for(const role of ROLES){co
 function checkWinner(){for(let i=0;i<2;i++){const p=state.players[i];if(ROLES.every(role=>!p.slots[role].active)){state.winner=1-i;logMsg(`🏆 ${state.players[state.winner].name} venceu a partida!`)}}}
 function finishResolutionPhase(){for(const p of state.players){for(const [effect,duration] of Object.entries(p.fieldEffects)){const idx=state.players.indexOf(p);if(effect==='chuva')for(const u of allUnitsOf(idx).filter(u=>!u.dead))Engine.applyHeal(u,10,logMsg);if(effect==='tempestade_de_areia')for(const u of allUnitsOf(1-idx).filter(u=>!u.dead))Engine.applyDamage(u,10,logMsg);p.fieldEffects[effect]=duration-1;if(p.fieldEffects[effect]<=0)delete p.fieldEffects[effect];}}for(const u of allUnitsAll()){if(u.dead)continue;const bleed=u.statuses.find(s=>s.status==='sangramento');if(bleed)Engine.applyDamage(u,bleed.value,logMsg);u.healedThisTurn=false;u.statuses=u.statuses.filter(s=>{if(s.duration===-1)return true;s.duration-=1;return s.duration>0});if(u.shield){u.shield.duration-=1;if(u.shield.duration<=0){logMsg(`O Escudo de ${u.name} expira.`);u.shield=null}}for(const k of Object.keys(u.cooldowns))if(u.cooldowns[k]>0)u.cooldowns[k]--; }checkDeaths();checkWinner();if(state.winner!==null){state.phase='gameover';render();return;}state.turn++;logMsg(`— Fim do turno. Iniciando Turno ${state.turn} —`);showTurnFlash(`TURNO ${state.turn}`,()=>startDeclarePhaseForPlayer(0));}
 function showTurnFlash(text,onDone){const flash=document.createElement('div');flash.className='hv-turn-flash';flash.innerHTML=`<div class="hv-turn-flash-text">${text}</div>`;document.body.appendChild(flash);setTimeout(()=>{flash.remove();onDone()},1150);}
+
+/* ===== CONSOLIDATED CORE RULE SAFETY ===== */
+(() => {
+  const nativeRunEffects = Engine.runEffects;
+  Engine.runEffects = function(effects, ctx, log) {
+    const list = effects || [];
+    const remaining = [];
+    for (const original of list) {
+      const eff = original && typeof original === 'object' ? { ...original } : original;
+      if (!eff) continue;
+      if (eff.type === 'applyStatus' && eff.status === 'damageCap' && eff.target) {
+        const targets = Engine.resolveTargets(eff.target, ctx).filter(Boolean);
+        for (const target of targets) {
+          target.statuses = target.statuses.filter(s => s.status !== 'damageCap');
+          target.statuses.push({status:'damageCap', value:Number(eff.value)||0, duration:2, startTurn:state.turn+1});
+          log(`${target.name} recebe limite de ${eff.value} de dano por instância a partir do próximo turno.`);
+        }
+        continue;
+      }
+      remaining.push(eff);
+    }
+    const isGrathThreshold = ctx?.caster?.cardId === 'grath'
+      && remaining.some(e => e?.type === 'dealDamage' && e?.target === 'chooseEnemy')
+      && remaining.some(e => e?.type === 'conditionalDamage' && e?.condition === 'targetLifeGTE:100');
+    if (isGrathThreshold) {
+      const first = remaining.find(e => e?.type === 'dealDamage' && e?.target === 'chooseEnemy');
+      const second = remaining.find(e => e?.type === 'conditionalDamage' && e?.condition === 'targetLifeGTE:100');
+      const initialLife = ctx.chosenTarget ? Engine.getCurrentLife(ctx.chosenTarget) : 0;
+      nativeRunEffects([first], ctx, log);
+      if (initialLife >= 100) nativeRunEffects([second], ctx, log);
+      for (const extra of remaining) if (extra !== first && extra !== second) nativeRunEffects([extra], ctx, log);
+      return;
+    }
+    return nativeRunEffects(remaining, ctx, log);
+  };
+
+  const nativeDamage = Engine.applyDamage;
+  Engine.applyDamage = function(unit, amount, log, source = null) {
+    if (unit?.statuses?.some(s => s.status === 'damageCap' && s.startTurn && state.turn < s.startTurn)) {
+      const saved = unit.statuses;
+      unit.statuses = saved.filter(s => !(s.status === 'damageCap' && s.startTurn && state.turn < s.startTurn));
+      try { return nativeDamage(unit, amount, log, source); }
+      finally { unit.statuses = saved; }
+    }
+    return nativeDamage(unit, amount, log, source);
+  };
+})();
