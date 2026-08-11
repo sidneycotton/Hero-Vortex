@@ -320,3 +320,150 @@ function renderTeamSelect(){
 const HV_EMBLEM_SVG=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="hvEmblemGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f0d48a"/><stop offset="100%" stop-color="#8a6a30"/></linearGradient></defs><polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="none" stroke="url(#hvEmblemGold)" stroke-width="2.5"/><polygon points="50,20 74,34 74,66 50,80 26,66 26,34" fill="none" stroke="#c7c9d1" stroke-width="1.2" opacity=".6"/><circle cx="50" cy="50" r="7" fill="url(#hvEmblemGold)"/><line x1="50" y1="4" x2="50" y2="20" stroke="#c7c9d1" stroke-width="1" opacity=".5"/><line x1="90" y1="27" x2="74" y2="34" stroke="#c7c9d1" stroke-width="1" opacity=".5"/><line x1="90" y1="73" x2="74" y2="66" stroke="#c7c9d1" stroke-width="1" opacity=".5"/><line x1="50" y1="96" x2="50" y2="80" stroke="#c7c9d1" stroke-width="1" opacity=".5"/><line x1="10" y1="73" x2="26" y2="66" stroke="#c7c9d1" stroke-width="1" opacity=".5"/><line x1="10" y1="27" x2="26" y2="34" stroke="#c7c9d1" stroke-width="1" opacity=".5"/></svg>`;
 async function boot(){const res=await fetch('cards.json');const data=await res.json();CARD_DB={};for(const c of data.cards)CARD_DB[c.id]=c;renderTeamSelect();}
 boot();
+
+/* ===== CONSOLIDATED: arena-start-fix.js ===== */
+// Fix for the initial "ENTRAR NA ARENA" button.
+// This deliberately uses the rendered initial-deploy screen instead of the
+// deckbuilder's private closure state, so it remains reliable on mobile and
+// after the UI has been redrawn.
+(() => {
+  const ROLES_FIX = ['defensor', 'atacante', 'suporte'];
+  let starting = false;
+
+  function selectedCard(player, role) {
+    return document.querySelector(
+      `[data-initial-player="${player}"][data-initial-role="${role}"].selected`
+    )?.dataset.id || null;
+  }
+
+  function cardsForRole(role) {
+    return Object.values(CARD_DB || {})
+      .filter(c => c && !c.isToken && c.role === role)
+      .map(c => c.id);
+  }
+
+  function makeBotDeck() {
+    const result = { defensor: [], atacante: [], suporte: [] };
+    for (const role of ROLES_FIX) {
+      const pool = cardsForRole(role);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      result[role] = pool.slice(0, 2);
+    }
+    return result;
+  }
+
+  function startFromVisibleSelection(event) {
+    const button = event.target.closest?.('#deployStartBtn');
+    if (!button || starting) return;
+
+    // We intentionally take over this click before the old closure handler.
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const p1Picks = { defensor: [], atacante: [], suporte: [] };
+    const initialChoices = [
+      { defensor: null, atacante: null, suporte: null },
+      { defensor: null, atacante: null, suporte: null }
+    ];
+
+    for (const role of ROLES_FIX) {
+      const selected = [...document.querySelectorAll(
+        `[data-initial-player="0"][data-initial-role="${role}"]`
+      )];
+      p1Picks[role] = selected.map(el => el.dataset.id).filter(Boolean);
+      initialChoices[0][role] = selected.find(el => el.classList.contains('selected'))?.dataset.id || null;
+    }
+
+    const valid = ROLES_FIX.every(role =>
+      p1Picks[role].length === 2 && !!initialChoices[0][role]
+    );
+    if (!valid) return;
+
+    const p2Picks = makeBotDeck();
+    for (const role of ROLES_FIX) {
+      initialChoices[1][role] = p2Picks[role][0];
+    }
+
+    starting = true;
+    button.disabled = true;
+    button.textContent = 'ENTRANDO...';
+
+    try {
+      if (typeof window.initGame !== 'function') {
+        throw new Error('initGame não está disponível.');
+      }
+      window.initGame(p1Picks, p2Picks, true, initialChoices);
+    } catch (error) {
+      console.error('[Hero Vortex] Falha ao entrar na arena:', error);
+      starting = false;
+      button.disabled = false;
+      button.textContent = 'ENTRAR NA ARENA';
+      alert('Não foi possível iniciar a arena. Recarregue a página e tente novamente.');
+    }
+  }
+
+  // Capture phase is important: the old inline/property handler is attached
+  // directly to the button, so a normal bubbling listener can be too late.
+  document.addEventListener('click', startFromVisibleSelection, true);
+})();
+
+
+/* ===== CONSOLIDATED: home-screen-fix.js ===== */
+/* Main menu entrypoint: make the game start action explicit and mobile-friendly. */
+(() => {
+  function upgradeHome() {
+    const btn = document.getElementById('hvEnterBtn');
+    if (!btn || document.querySelector('.hv-main-play')) return;
+    btn.classList.add('hv-main-play');
+    btn.innerHTML = '<span aria-hidden="true">▶</span> JOGAR';
+    btn.setAttribute('aria-label', 'Jogar Hero Vortex');
+    btn.setAttribute('title', 'Jogar Hero Vortex');
+  }
+  const style = document.createElement('style');
+  style.textContent = `
+    .hv-main-play{min-width:min(320px,82vw);min-height:58px;font-size:1.08rem;letter-spacing:.14em;display:inline-flex;align-items:center;justify-content:center;gap:.7rem;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    .hv-main-play span{font-size:.85em;filter:drop-shadow(0 0 5px rgba(240,212,138,.35))}
+    .hv-main-play:active{transform:translateY(1px) scale(.985)}
+  `;
+  document.head.appendChild(style);
+  const observer = new MutationObserver(upgradeHome);
+  observer.observe(document.body, { childList:true, subtree:true });
+  upgradeHome();
+})();
+
+
+/* ===== CONSOLIDATED: startup-fix.js ===== */
+/* Hero Vortex startup guard.
+   The main app can boot before the enhancement modules finish loading.
+   If that race leaves #app empty, retry after every script has loaded. */
+(() => {
+  function retryHome() {
+    const app = document.getElementById('app');
+    if (!app || app.children.length) return;
+    if (typeof renderTeamSelect !== 'function') return;
+    try {
+      renderTeamSelect();
+    } catch (err) {
+      console.error('[Hero Vortex] startup retry failed:', err);
+      // Keep a usable entry screen instead of leaving a completely blank page.
+      app.innerHTML = `
+        <div class="hv-home">
+          <div class="hv-emblem">${typeof HV_EMBLEM_SVG !== 'undefined' ? HV_EMBLEM_SVG : ''}</div>
+          <h1 class="game-title">HERO <span class="game-title-accent">VORTEX</span></h1>
+          <p class="setup-sub">Monte seu deck, escolha seu trio e entre na arena.</p>
+          <div class="hv-primary-cta">
+            <button class="btn-primary hv-main-play" id="hvEmergencyPlay">▶ JOGAR</button>
+          </div>
+        </div>`;
+      document.getElementById('hvEmergencyPlay')?.addEventListener('click', () => {
+        try { renderTeamSelect(); } catch (e) { console.error(e); }
+      });
+    }
+  }
+  window.addEventListener('load', () => setTimeout(retryHome, 0), { once: true });
+  setTimeout(retryHome, 300);
+})();

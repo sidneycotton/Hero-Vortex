@@ -17,3 +17,28 @@ installToggle();
 document.addEventListener('click',e=>{if(e.target.closest('.hv-deck-card,.hv-target-option,.hv-initial-choice,.ability-btn,.class-choice,.deck-class-tab,button'))sounds.tap()},true);
 const observer=new MutationObserver(ms=>{for(const m of ms){if(m.type==='childList')m.addedNodes.forEach(n=>{if(!(n instanceof Element))return;if(n.matches('.hv-motion-card')||n.querySelector('.hv-motion-card')){const now=performance.now();if(now-lastMotionAt>90){lastMotionAt=now;sounds.attack()}}});if(m.type==='attributes'){const e=m.target;if(!(e instanceof Element))continue;const c=e.classList;if(c.contains('hv-hit-reaction')){const now=performance.now();if(now-lastImpactAt>90){lastImpactAt=now;sounds.impact()}}if(c.contains('hv-target-marked'))sounds.target();if(c.contains('hv-defeated')||c.contains('hv-death-reaction'))sounds.defeat()}}});observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 })();
+
+
+/* ===== CONSOLIDATED: audio-mode.js ===== */
+/* Hero Vortex audio routing: switches the synthesized soundtrack with the active screen. */
+(() => {
+  let lastMode = null;
+  function detectMode() {
+    const root = document.getElementById('app');
+    if (!root) return 'menu';
+    return root.querySelector('.hv-battle-screen') ? 'arena' : 'menu';
+  }
+  function sync() {
+    const mode = detectMode();
+    if (mode === lastMode) return;
+    lastMode = mode;
+    if (window.HVAudio?.setMusicMode) window.HVAudio.setMusicMode(mode);
+  }
+  const start = () => {
+    sync();
+    const root = document.getElementById('app');
+    if (root) new MutationObserver(sync).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
+})();
