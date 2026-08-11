@@ -49,13 +49,23 @@
     ]
   };
 
-  function installCards() {
-    if (typeof CARD_DB === 'undefined' || !CARD_DB || Object.keys(CARD_DB).length === 0) return false;
-    CARD_DB.kalany = KALANY;
-    // Draak fica fora do deckbuilder: só existe quando Kalany se transforma.
-    if (typeof render === 'function') render();
-    return true;
-  }
+  // app.js fetches cards.json asynchronously. Install Kalany into that response
+  // so the existing idsByRole/deckbuilder pipeline sees it as a normal Defender.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async function(...args) {
+    const response = await nativeFetch(...args);
+    const url = String(args[0]?.url || args[0] || '');
+    if (!url.includes('cards.json')) return response;
+    const data = await response.clone().json();
+    if (Array.isArray(data.cards) && !data.cards.some(card => card.id === 'kalany')) {
+      data.cards.push(KALANY);
+    }
+    return new Response(JSON.stringify(data), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+  };
 
   function isProtectedFrom(attacker, target) {
     return !!(attacker && target && attacker.owner !== target.owner &&
@@ -63,7 +73,7 @@
   }
 
   function installTargetProtection() {
-    if (typeof enemyTeamOf !== 'function' || window.__hvDraakProtectionInstalled) return;
+    if (typeof enemyTeamOf !== 'function' || window.__hvDraakProtectionInstalled) return false;
     const originalEnemyTeamOf = enemyTeamOf;
     window.__hvDraakProtectionInstalled = true;
     window.__hvOriginalEnemyTeamOf = originalEnemyTeamOf;
@@ -79,6 +89,7 @@
         return originalExecuteAbility(caster, abilityIdx, targetUid);
       };
     }
+    return true;
   }
 
   function transformKalany(unit) {
@@ -96,7 +107,6 @@
     unit.isToken = true;
     unit.justSpawned = true;
 
-    // Protege os outros aliados somente durante o turno da transformação.
     const allies = allyTeamOf(unit).filter(ally => ally.uid !== unit.uid && !ally.dead);
     for (const ally of allies) {
       ally.statuses.push({ status: 'draakProtected', value: 1, duration: 1 });
@@ -115,11 +125,12 @@
     if (state.turn === lastTurn) return;
     lastTurn = state.turn;
 
-    // Remove a proteção do turno anterior antes de aplicar a nova transformação.
+    // Protection from the previous transformation expires as the new turn starts.
     for (const unit of allUnitsAll()) {
       unit.statuses = unit.statuses.filter(s => s.status !== 'draakProtected');
     }
 
+    // "No começo de cada turno" = one counter per turn, not when the card is played.
     for (const unit of allUnitsAll()) {
       if (unit.dead || unit.cardId !== 'kalany') continue;
       unit.counters.fim = (unit.counters.fim || 0) + 1;
@@ -129,7 +140,7 @@
   }
 
   function boot() {
-    if (installCards()) {
+    if (typeof CARD_DB !== 'undefined' && Object.keys(CARD_DB).length > 0) {
       installTargetProtection();
       setInterval(processTurnStart, 100);
     } else {
