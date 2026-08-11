@@ -566,3 +566,490 @@ button:focus-visible, .pick-card:focus-visible, .unit-card:focus-visible {
   outline: 2px solid var(--gold-bright);
   outline-offset: 2px;
 }
+
+/* ===================================================================
+   HERO VORTEX v2 — animações, overlay de alvo, home screen dinâmica
+   =================================================================== */
+
+*, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---------- Home screen ---------- */
+
+.hv-home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 18px 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hv-home::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(207,168,85,0.10), transparent 45%),
+    radial-gradient(circle at 82% 78%, rgba(60,95,158,0.14), transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(143,31,31,0.10), transparent 55%);
+  animation: hvAuraDrift 16s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes hvAuraDrift {
+  from { transform: translate(0,0) scale(1); }
+  to { transform: translate(-2%, 3%) scale(1.08); }
+}
+
+.hv-home > * { position: relative; z-index: 1; }
+
+.hv-emblem {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 18px;
+  opacity: 0;
+  animation: hvFadeUp 0.7s ease 0.05s forwards;
+}
+
+.hv-emblem svg { width: 100%; height: 100%; filter: drop-shadow(0 0 16px rgba(207,168,85,0.45)); }
+
+.hv-home .game-title {
+  opacity: 0;
+  font-size: clamp(2.4rem, 9vw, 4.2rem);
+  animation: hvTitleIn 0.9s cubic-bezier(.2,.8,.2,1) 0.15s forwards;
+}
+
+@keyframes hvTitleIn {
+  from { opacity: 0; letter-spacing: 0.3em; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; letter-spacing: 0.06em; transform: translateY(0) scale(1); }
+}
+
+.hv-home .setup-sub {
+  opacity: 0;
+  animation: hvFadeUp 0.7s ease 0.4s forwards;
+}
+
+@keyframes hvFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hv-vs-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 6px 0 30px;
+  opacity: 0;
+  animation: hvFadeUp 0.7s ease 0.55s forwards;
+}
+
+.hv-vs-card {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  background: linear-gradient(160deg, var(--marble-light), var(--marble-dark));
+  border: 1px solid rgba(200,204,214,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  animation: hvIconFloat 3.2s ease-in-out infinite;
+}
+.hv-vs-card:nth-child(3) { animation-delay: -1.6s; }
+
+@keyframes hvIconFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(-3deg); }
+}
+
+.hv-vs-glyph {
+  font-family: var(--font-display);
+  color: var(--blood-bright);
+  letter-spacing: 0.25em;
+  font-size: 0.85rem;
+  text-shadow: 0 0 10px rgba(212,59,59,0.5);
+}
+
+.hv-primary-cta {
+  opacity: 0;
+  animation: hvFadeUp 0.7s ease 0.7s forwards;
+}
+
+.hv-primary-cta .btn-primary {
+  font-size: 1.05rem;
+  padding: 14px 38px;
+  box-shadow: 0 0 0 0 rgba(207,168,85,0.5);
+  animation: hvPulseGlow 2.6s ease-in-out infinite;
+}
+
+@keyframes hvPulseGlow {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 0 rgba(207,168,85,0.35); }
+  50% { box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 22px 4px rgba(207,168,85,0.28); }
+}
+
+.hv-config-panel {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: left;
+  opacity: 0;
+  animation: hvFadeUp 0.6s ease forwards;
+}
+
+.hv-back-link {
+  background: none;
+  border: none;
+  color: var(--silver);
+  font-family: var(--font-accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 4px 0;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+.hv-back-link:hover { color: var(--gold-bright); opacity: 1; }
+
+.pick-card { animation: hvFadeUp 0.35s ease backwards; }
+
+/* ---------- Board layout — mobile-first ---------- */
+
+#app { padding: 14px 10px 50px; }
+
+@media (min-width: 640px) {
+  #app { padding: 20px 16px 60px; }
+}
+
+.unit-row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+
+@media (max-width: 480px) {
+  .unit-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .unit-card { padding: 9px 9px 10px; }
+  .unit-name { font-size: 0.78rem; }
+  .ability-btn { grid-template-columns: 24px 1fr; font-size: 0.7rem; padding: 5px 6px; }
+  .ability-btn .ability-cd, .ability-btn .ability-cd-max { grid-column: 2; justify-self: end; margin-top: -2px; }
+  .ability-cost { width: 22px; height: 22px; font-size: 0.72rem; }
+  .game-title { font-size: 1.9rem; }
+  .topbar { flex-direction: column; align-items: stretch; }
+  .topbar-actions { justify-content: stretch; }
+  .topbar-actions .btn-primary, .topbar-actions .btn-secondary { flex: 1; }
+}
+
+.player-zone { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+
+/* ---------- Unit card motion states ---------- */
+
+.unit-card { will-change: transform; }
+
+.unit-card.hv-caster {
+  animation: hvCasterPulse 0.85s ease;
+  z-index: 3;
+}
+
+@keyframes hvCasterPulse {
+  0%   { transform: scale(1); box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+  30%  { transform: scale(1.06) translateY(-3px); box-shadow: 0 8px 26px rgba(207,168,85,0.35), 0 0 0 2px var(--gold); }
+  100% { transform: scale(1); box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+}
+
+.unit-card.hv-target-hit {
+  animation: hvHitShake 0.42s cubic-bezier(.36,.07,.19,.97);
+}
+
+@keyframes hvHitShake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px) rotate(-0.4deg); }
+  30%, 50%, 70% { transform: translateX(-7px) rotate(0.6deg); }
+  40%, 60% { transform: translateX(7px) rotate(-0.6deg); }
+  100% { transform: translateX(0); }
+}
+
+.unit-card.hv-target-hit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(212,59,59,0.35), transparent 70%);
+  animation: hvFlashOut 0.42s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes hvFlashOut { from { opacity: 1; } to { opacity: 0; } }
+
+.unit-card.hv-target-heal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(74,143,92,0.4), transparent 70%);
+  animation: hvFlashOut 0.5s ease forwards;
+  pointer-events: none;
+}
+
+.unit-card.hv-target-heal { animation: hvHealBob 0.5s ease; }
+
+@keyframes hvHealBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.unit-card.hv-just-died {
+  animation: hvDeathFall 0.6s ease forwards;
+}
+
+@keyframes hvDeathFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; filter: grayscale(0); }
+  100% { transform: translateY(6px) rotate(-3deg); opacity: 0.45; filter: grayscale(0.8); }
+}
+
+.unit-card.hv-spawned {
+  animation: hvSpawnIn 0.5s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes hvSpawnIn {
+  from { transform: scale(0.8) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Floating combat numbers */
+.hv-float-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 5;
+}
+
+.hv-float-num {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.15rem;
+  transform: translateX(-50%);
+  animation: hvFloatUp 0.95s ease forwards;
+  white-space: nowrap;
+}
+
+.hv-float-num.dmg { color: var(--blood-bright); text-shadow: 0 0 8px rgba(212,59,59,0.7), 0 2px 0 #000; }
+.hv-float-num.heal { color: #7fe39a; text-shadow: 0 0 8px rgba(74,227,138,0.6), 0 2px 0 #000; }
+.hv-float-num.shield { color: var(--sapphire-bright); text-shadow: 0 0 8px rgba(111,155,224,0.6), 0 2px 0 #000; }
+
+@keyframes hvFloatUp {
+  0%   { opacity: 0; transform: translate(-50%, 4px) scale(0.7); }
+  15%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+  75%  { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -42px) scale(0.95); }
+}
+
+/* ---------- Combat banner (announces current action) ---------- */
+
+.hv-cast-banner {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  max-width: 640px;
+  margin: 0 auto 14px;
+  background: linear-gradient(160deg, rgba(43,43,47,0.96), rgba(18,18,20,0.96));
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  padding: 10px 16px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 20px rgba(207,168,85,0.15);
+  animation: hvBannerIn 0.35s ease;
+}
+
+@keyframes hvBannerIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hv-cast-name {
+  font-family: var(--font-display);
+  color: var(--gold-bright);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.hv-cast-text {
+  font-size: 0.82rem;
+  color: var(--silver);
+  font-style: italic;
+}
+
+.hv-cast-banner.hv-cast-done { border-color: rgba(74,143,92,0.5); }
+
+/* Queue panel refinements */
+.queue-item { transition: opacity 0.3s ease, transform 0.3s ease; }
+.queue-current { animation: hvQueuePulse 1s ease-in-out infinite; }
+@keyframes hvQueuePulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(212,59,59,0.4); }
+  50% { box-shadow: 0 0 18px rgba(212,59,59,0.7); }
+}
+
+/* ---------- Target selection overlay ---------- */
+
+.hv-target-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(8,8,10,0.86);
+  backdrop-filter: blur(3px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 24px 16px 40px;
+  overflow-y: auto;
+  animation: hvOverlayIn 0.22s ease;
+}
+
+@keyframes hvOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+.hv-target-header {
+  text-align: center;
+  margin-bottom: 20px;
+  max-width: 480px;
+}
+
+.hv-target-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--gold-bright);
+  margin-bottom: 6px;
+}
+
+.hv-target-sub {
+  font-size: 0.85rem;
+  color: var(--silver);
+  font-style: italic;
+}
+
+.hv-target-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 220px));
+  gap: 16px;
+  justify-content: center;
+  max-width: 900px;
+  width: 100%;
+}
+
+.hv-target-option {
+  cursor: pointer;
+  background: linear-gradient(160deg, var(--marble-light), var(--marble-dark));
+  border: 2px solid var(--blood-bright);
+  border-radius: 16px;
+  padding: 16px 14px;
+  text-align: center;
+  box-shadow: 0 0 0 3px rgba(212,59,59,0.2), 0 10px 30px rgba(0,0,0,0.5);
+  animation: hvTargetPop 0.3s cubic-bezier(.2,.8,.2,1) backwards, hvTargetPulse 1.6s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+
+.hv-target-option:hover, .hv-target-option:focus-visible { transform: translateY(-4px) scale(1.03); }
+.hv-target-option:active { transform: scale(0.97); }
+
+@keyframes hvTargetPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes hvTargetPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(212,59,59,0.22), 0 10px 30px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(212,59,59,0.4), 0 10px 34px rgba(0,0,0,0.5); }
+}
+
+.hv-target-option.hv-ally-target {
+  border-color: var(--sapphire-bright);
+  animation-name: hvTargetPop, hvTargetPulseAlly;
+}
+
+@keyframes hvTargetPulseAlly {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(111,155,224,0.22), 0 10px 30px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(111,155,224,0.4), 0 10px 34px rgba(0,0,0,0.5); }
+}
+
+.hv-target-role {
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+
+.hv-target-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--silver-bright);
+  margin-bottom: 6px;
+}
+
+.hv-target-life {
+  font-family: var(--font-accent);
+  font-size: 0.8rem;
+  color: var(--silver);
+}
+
+.hv-target-lifebar {
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.hv-target-lifebar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--health-red), var(--health-yellow), var(--health-green));
+  transition: width 0.3s ease;
+}
+
+.hv-target-cancel {
+  margin-top: 26px;
+}
+
+/* Turn transition flash */
+.hv-turn-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8,8,10,0.94);
+  animation: hvTurnFlashSeq 1.3s ease forwards;
+  pointer-events: none;
+}
+
+.hv-turn-flash-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 8vw, 3rem);
+  color: var(--gold-bright);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 30px rgba(207,168,85,0.6);
+}
+
+@keyframes hvTurnFlashSeq {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Life bar on unit cards */
+.unit-lifebar {
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.08);
+  margin: 4px 0 6px;
+  overflow: hidden;
+}
+.unit-lifebar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--health-red), var(--health-yellow), var(--health-green));
+  transition: width 0.4s ease;
+}
