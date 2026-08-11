@@ -1,93 +1,143 @@
 /* Deckbuilder interaction polish.
-   A normal tap remains a normal click. A hold only becomes visually active
-   after HOLD_VISUAL_MS, then toggles the card at HOLD_MS. Delegated pointer
-   events make this survive deckbuilder rerenders and work on touch + mouse. */
+   Mobile-first implementation:
+   - a quick tap is left completely alone so the existing click handler runs;
+   - the hold UI starts only after HOLD_VISUAL_MS;
+   - after HOLD_MS the card's real .click() method is invoked;
+   - touchend/click suppression prevents the delayed mobile browser click from toggling twice.
+   Native touch events are used in addition to pointer events because some mobile WebViews
+   do not reliably deliver pointer events for dynamically-rendered cards. */
 (function(){
   const HOLD_MS = 420;
   const HOLD_VISUAL_MS = 150;
+  const MOVE_CANCEL_PX = 12;
+
+  let activeCard = null;
   let timer = null;
   let visualTimer = null;
-  let activeCard = null;
-  let activePointerId = null;
+  let startX = 0;
+  let startY = 0;
   let holdTriggered = false;
-  const suppressClick = new WeakSet();
+  let suppressClickUntil = 0;
+  let suppressCard = null;
 
   function getCard(target){
     const el = target && target.closest ? target.closest('.hv-deck-card') : null;
     return el && document.contains(el) ? el : null;
   }
 
-  function clearHold(){
-    if (timer){ clearTimeout(timer); timer = null; }
-    if (visualTimer){ clearTimeout(visualTimer); visualTimer = null; }
-    if (activeCard) activeCard.classList.remove('hv-long-pressing');
-    activeCard = null;
-    activePointerId = null;
+  function clearTimers(){
+    if(timer){clearTimeout(timer);timer=null;}
+    if(visualTimer){clearTimeout(visualTimer);visualTimer=null;}
   }
 
-  function activate(card){
-    if (!card || card.disabled || card.classList.contains('is-disabled')) return;
-
-    holdTriggered = true;
-    card.classList.remove('hv-long-pressing');
-
-    /* Let the existing deckbuilder click handler do the actual add/remove. */
-    card.dispatchEvent(new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      view: window,
-      button: 0,
-      buttons: 0
-    }));
-
-    /* Suppress only a real follow-up browser click. */
-    suppressClick.add(card);
-    window.setTimeout(() => suppressClick.delete(card), 700);
+  function reset(){
+    clearTimers();
+    if(activeCard) activeCard.classList.remove('hv-long-pressing');
+    activeCard=null;
+    holdTriggered=false;
   }
 
-  document.addEventListener('pointerdown', function(e){
-    if (e.button !== undefined && e.button !== 0) return;
-    const card = getCard(e.target);
-    if (!card) return;
+  function start(card,x,y){
+    if(!card || card.disabled || card.classList.contains('is-disabled')) return;
+    reset();
+    activeCard=card;
+    startX=x;
+    startY=y;
+    holdTriggered=false;
 
-    clearHold();
-    activeCard = card;
-    activePointerId = e.pointerId;
-    holdTriggered = false;
-
-    /* A quick tap has no hold animation. */
-    visualTimer = window.setTimeout(() => {
-      if (activeCard === card && !holdTriggered) {
+    visualTimer=setTimeout(function(){
+      if(activeCard===card && !holdTriggered){
         card.classList.add('hv-long-pressing');
       }
-      visualTimer = null;
-    }, HOLD_VISUAL_MS);
+      visualTimer=null;
+    },HOLD_VISUAL_MS);
 
-    timer = window.setTimeout(() => {
-      if (activeCard === card) {
-        timer = null;
-        activate(card);
-      }
-    }, HOLD_MS);
-  }, {passive:true});
+    timer=setTimeout(function(){
+      if(activeCard!==card) return;
+      timer=null;
+      holdTriggered=true;
+      card.classList.remove('hv-long-pressing');
 
-  document.addEventListener('pointerup', function(e){
-    if (activePointerId !== null && e.pointerId !== activePointerId) return;
-    const card = activeCard;
-    const didHold = holdTriggered;
-    clearHold();
-    if (card && !didHold) suppressClick.delete(card);
-  }, {passive:true});
+      /* IMPORTANT: use the element's native click method rather than dispatchEvent.
+         This follows the exact same DOM click path as tapping the card on mobile. */
+      suppressCard=card;
+      suppressClickUntil=Date.now()+1200;
+      card.click();
+    },HOLD_MS);
+  }
 
-  document.addEventListener('pointercancel', clearHold, {passive:true});
+  function move(x,y){
+    if(!activeCard) return;
+    if(Math.abs(x-startX)>MOVE_CANCEL_PX || Math.abs(y-startY)>MOVE_CANCEL_PX){
+      reset();
+    }
+  }
 
-  /* Synthetic click above has isTrusted === false and must pass through.
-     Only suppress the platform's trusted follow-up click after a hold. */
-  document.addEventListener('click', function(e){
-    const card = getCard(e.target);
-    if (!card || !suppressClick.has(card) || !e.isTrusted) return;
-    suppressClick.delete(card);
-    e.preventDefault();
-    e.stopImmediatePropagation();
-  }, true);
+  function finish(){
+    const held=holdTriggered;
+    reset();
+    return held;
+  }
+
+  /* Native touch path — this is the important path for Android/iOS. */
+  document.addEventListener('touchstart',function(e){
+    if(e.touches.length!==1) return;
+    const t=e.touches[0];
+    const card=getCard(e.target);
+    if(card) start(card,t.clientX,t.clientY);
+  },{passive:true});
+
+  document.addEventListener('touchmove',function(e){
+    if(e.touches.length!==1) return;
+    const t=e.touches[0];
+    move(t.clientX,t.clientY);
+  },{passive:true});
+
+  document.addEventListener('touchend',function(e){
+    const held=finish();
+    if(held){
+      /* Stop the delayed synthetic click generated by mobile browsers. */
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },{passive:false});
+
+  document.addEventListener('touchcancel',reset,{passive:true});
+
+  /* Desktop fallback. */
+  document.addEventListener('pointerdown',function(e){
+    if(e.pointerType==='touch') return;
+    if(e.button!==undefined && e.button!==0) return;
+    const card=getCard(e.target);
+    if(card) start(card,e.clientX,e.clientY);
+  },{passive:true});
+
+  document.addEventListener('pointermove',function(e){
+    if(e.pointerType==='touch') return;
+    move(e.clientX,e.clientY);
+  },{passive:true});
+
+  document.addEventListener('pointerup',function(e){
+    if(e.pointerType==='touch') return;
+    finish();
+  },{passive:true});
+
+  document.addEventListener('pointercancel',function(e){
+    if(e.pointerType!=='touch') reset();
+  },{passive:true});
+
+  /* Mobile browsers may emit a trusted click after touchend even when preventDefault
+     is not honored by the WebView. Only suppress the click belonging to a hold. */
+  document.addEventListener('click',function(e){
+    if(!suppressCard || Date.now()>suppressClickUntil){
+      suppressCard=null;
+      return;
+    }
+    const card=getCard(e.target);
+    if(card===suppressCard){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      suppressCard=null;
+    }
+  },true);
 })();
