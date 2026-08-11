@@ -107,7 +107,6 @@ function finishDeclareForPlayer(playerIdx) {
 function showPassDeviceScreen(nextPlayerIdx) { state.phase='pass-device'; state.nextDeclarer=nextPlayerIdx; render(); }
 function confirmPassDevice() { startDeclarePhaseForPlayer(state.nextDeclarer); }
 
-
 // ===================== BOT =====================
 function declareBot(playerIdx) {
   state.declarations[playerIdx]={};
@@ -126,7 +125,6 @@ function declareBot(playerIdx) {
   logMsg(`${state.players[playerIdx].name} declarou suas ações.`);
 }
 
-
 // ===================== RESOLUÇÃO =====================
 function beginResolution() {
   state.phase='resolve'; const queue=[];
@@ -138,27 +136,63 @@ function beginResolution() {
   logMsg(`— Resolvendo turno ${state.turn} —`); beginAutoResolution();
 }
 const HV_STEP_DELAY=1550;
-function snapshotUnits(){const map={};for(const u of allUnitsAll())map[u.uid]={life:u.life,shieldValue:u.shield?u.shield.value:0,dead:u.dead,statuses:u.statuses.map(s=>`${s.status}:${s.value??''}:${s.duration}`).sort(),counters:{...u.counters}};return map;}
-function autoResolveStep(){
+function snapshotUnits(){const map={};for(const u of allUnitsAll())map[u.uid]={life:u.life,shieldValue:u.shield?u.shield.value:0,dead:u.dead,statuses:(u.statuses||[]).map(s=>`${s.status}:${s.value??''}:${s.duration}:${s.startTurn??''}`).sort(),counters:{...(u.counters||{})}};return map;}
+
+async function autoResolveStep(){
   if(!state||state.phase!=='resolve')return;
-  if(state.resolutionIdx>=state.resolutionQueue.length){setTimeout(()=>{if(state&&state.phase==='resolve')finishResolutionPhase()},500);return;}
-  const item=state.resolutionQueue[state.resolutionIdx++],caster=getUnit(item.uid);
-  if(!caster||caster.dead){render();setTimeout(autoResolveStep,250);return;}
-  const ability=CARD_DB[caster.cardId].abilities[item.abilityIdx],before=snapshotUnits(),sourceEl=document.querySelector(`.unit-card[data-uid="${caster.uid}"]`),geometry={source:null,targets:{}};
+  if(state.resolutionIdx>=state.resolutionQueue.length){finishResolutionPhase();return;}
+
+  const item=state.resolutionQueue[state.resolutionIdx++];
+  const caster=getUnit(item.uid);
+  if(!caster||caster.dead){render();await autoResolveStep();return;}
+
+  const ability=CARD_DB[caster.cardId]?.abilities?.[item.abilityIdx];
+  if(!ability) throw new Error(`Combat resolution: habilidade ${item.abilityIdx} não encontrada para ${caster.cardId}.`);
+
+  const before=snapshotUnits();
+  const sourceEl=document.querySelector(`.unit-card[data-uid="${caster.uid}"]`);
+  const geometry={source:null,targets:{}};
   if(sourceEl){const r=sourceEl.getBoundingClientRect();geometry.source={left:r.left,top:r.top,width:r.width,height:r.height};}
-  for(const u of allUnitsAll()){const el=document.querySelector(`.unit-card[data-uid="${u.uid}"]`);if(el){const r=el.getBoundingClientRect();geometry.targets[u.uid]={x:r.left+r.width/2,y:r.top+r.height/2};}}
-  state.hvActiveCast={casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,text:ability.text,casterName:caster.name}; render();
-  const preexistingDead=new Set(allUnitsAll().filter(u=>u.dead).map(u=>u.uid));
-  setTimeout(()=>{
-    executeAbility(caster,item.abilityIdx,item.targetUid);checkDeaths();checkWinner();const after=snapshotUnits();
-    state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead&&!preexistingDead.has(u.uid)).map(u=>u.uid),geometry};
-    render();playCombatSequence(state.hvDiff);
-    setTimeout(()=>{state.hvActiveCast=null;state.hvDiff=null;if(state.winner!==null){finishResolutionPhase();return;}render();setTimeout(autoResolveStep,220)},HV_STEP_DELAY-500);
-  },550);
+  for(const u of allUnitsAll()){
+    const el=document.querySelector(`.unit-card[data-uid="${u.uid}"]`);
+    if(el){const r=el.getBoundingClientRect();geometry.targets[u.uid]={x:r.left+r.width/2,y:r.top+r.height/2};}
+  }
+
+  state.hvActiveCast={casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,text:ability.text,casterName:caster.name};
+  render();
+
+  await new Promise(resolve=>setTimeout(resolve,550));
+
+  try {
+    executeAbility(caster,item.abilityIdx,item.targetUid);
+    checkDeaths();
+    checkWinner();
+    const after=snapshotUnits();
+    state.hvDiff={before,after,casterUid:caster.uid,targetUid:item.targetUid,abilityIdx:item.abilityIdx,newlyDead:allUnitsAll().filter(u=>u.dead).map(u=>u.uid),geometry};
+    render();
+
+    if(typeof playCombatSequence!=='function') throw new Error('Combat resolution: playCombatSequence não está disponível.');
+    await playCombatSequence(state.hvDiff);
+
+    state.hvActiveCast=null;
+    state.hvDiff=null;
+    if(state.winner!==null){finishResolutionPhase();return;}
+    render();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    await autoResolveStep();
+  } catch(error) {
+    console.error('[Hero Vortex] Combat resolution interrupted:',error);
+    logMsg(`⚠ Erro na resolução de ${caster.name}: ${error?.message||error}`);
+    state.hvActiveCast=null;
+    state.hvDiff=null;
+    render();
+    throw error;
+  }
 }
-function beginAutoResolution(){state.hvActiveCast=null;state.hvDiff=null;render();setTimeout(autoResolveStep,500);}
+function beginAutoResolution(){state.hvActiveCast=null;state.hvDiff=null;render();setTimeout(()=>autoResolveStep().catch(()=>{}),500);}
 function executeAbility(caster,abilityIdx,targetUid){
   const def=CARD_DB[caster.cardId],ability=def.abilities[abilityIdx],chosenTarget=targetUid?getUnit(targetUid):null,allyTeam=allyTeamOf(caster),enemyTeam=enemyTeamOf(caster);
+  if(!def||!ability) throw new Error(`executeAbility: definição ausente para ${caster?.cardId} / habilidade ${abilityIdx}.`);
   const ctx={caster,chosenTarget,allyTeam,enemyTeam,enemyField:enemyTeam,enemyHand:[],lastTarget:chosenTarget,
     onCreateToken:tokenId=>{const tok=makeUnit(tokenId,caster.owner);tok.justSpawned=true;ownerOf(caster).extraUnits.push(tok);logMsg(`${ownerOf(caster).name} cria uma ${CARD_DB[tokenId].name}.`);},
     onSacrificeToken:(tokenId,log)=>{const list=ownerOf(caster).extraUnits,idx=list.findIndex(u=>u.cardId===tokenId&&!u.dead);if(idx>=0){list[idx].dead=true;list[idx].life=0;log(`${list[idx].name} é destruída como custo da habilidade.`)}else log(`Nenhuma Máquina de Guerra disponível para sacrificar!`);},
