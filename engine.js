@@ -3,6 +3,13 @@
 
 const Engine = (() => {
 
+  // Vida efetiva usada pelas REGRAS = vida real + escudo atual.
+  // A interface NÃO usa esta soma: vida e escudo são exibidos separadamente.
+  function getCurrentLife(unit) {
+    if (!unit) return 0;
+    return Math.max(0, (Number(unit.life) || 0) + (unit.shield ? (Number(unit.shield.value) || 0) : 0));
+  }
+
   function clampLife(unit) {
     unit.life = Math.max(0, Math.min(unit.maxLife, unit.life));
     if (unit.life === 0) unit.dead = true;
@@ -12,35 +19,37 @@ const Engine = (() => {
     if (!unit || unit.dead) return 0;
     let dmg = amount;
 
-    // Cap de dano (Nira)
     const cap = unit.statuses.find(s => s.status === 'damageCap');
     if (cap) dmg = Math.min(dmg, cap.value);
 
-    // Escudo absorve primeiro
+    // Escudo absorve primeiro. Cura nunca recupera o escudo.
     if (unit.shield && unit.shield.value > 0) {
       const absorbed = Math.min(unit.shield.value, dmg);
       unit.shield.value -= absorbed;
       dmg -= absorbed;
       log(`${unit.name} absorve ${absorbed} de dano com o Escudo.`);
       if (unit.shield.value <= 0) {
-        unit.shield = null; // expira -> passiva de Rankorr trata separadamente
+        unit.shield = null;
       }
     }
 
     unit.life -= dmg;
     clampLife(unit);
-    if (dmg > 0) log(`${unit.name} sofre ${dmg} de dano. (Vida: ${Math.max(0,unit.life)}/${unit.maxLife})`);
+    if (dmg > 0) {
+      log(`${unit.name} sofre ${dmg} de dano. (Vida: ${Math.max(0, unit.life)}/${unit.maxLife})`);
+    }
     return dmg;
   }
 
   function applyHeal(unit, amount, log) {
     if (!unit || unit.dead) return;
+    // Cura afeta SOMENTE a vida real, nunca o escudo.
     const before = unit.life;
     unit.life = Math.min(unit.maxLife, unit.life + amount);
-    log(`${unit.name} recupera ${unit.life - before} de vida. (Vida: ${unit.life}/${unit.maxLife})`);
+    const healed = unit.life - before;
+    log(`${unit.name} recupera ${healed} de vida. (Vida: ${unit.life}/${unit.maxLife})`);
   }
 
-  // Resolve um alvo simbólico em unidade(s) real(is)
   function resolveTargets(targetSpec, ctx) {
     const { caster, chosenTarget, enemyTeam, allyTeam, lastTarget } = ctx;
     switch (targetSpec) {
@@ -49,7 +58,7 @@ const Engine = (() => {
       case 'chooseEnemy': return [chosenTarget];
       case 'chooseAllyNotMovedYet': return [chosenTarget];
       case 'allAllies': return allyTeam.filter(u => !u.dead);
-      case 'allAlliesIncludingHand': return allyTeam.filter(u => !u.dead); // hand tratado à parte para buffMaxLife
+      case 'allAlliesIncludingHand': return allyTeam.filter(u => !u.dead);
       case 'allEnemies': return enemyTeam.filter(u => !u.dead);
       case 'lastTarget': return lastTarget ? [lastTarget] : [];
       case 'enemyDefensor': return enemyTeam.filter(u => u.role === 'defensor' && !u.dead);
@@ -57,7 +66,7 @@ const Engine = (() => {
       case 'enemySuporte': return enemyTeam.filter(u => u.role === 'suporte' && !u.dead);
       case 'allyAtacante': return allyTeam.filter(u => u.role === 'atacante' && !u.dead);
       case 'allyDefensor': return allyTeam.filter(u => u.role === 'defensor' && !u.dead);
-      case 'allEnemiesFieldAndHand': return enemyTeam; // contagem inclui mão (aprox: campo)
+      case 'allEnemiesFieldAndHand': return enemyTeam;
       default: return [];
     }
   }
@@ -77,13 +86,16 @@ const Engine = (() => {
     if (cond === 'selfHasShield') return !!(caster.shield && caster.shield.value > 0);
     if (cond === 'lastTargetKilled') return lastTarget && lastTarget.dead;
     if (cond === 'targetHealedThisTurn') return lastTarget && lastTarget.healedThisTurn;
+
+    // Qualquer condição que diga "vida atual" usa vida + escudo.
+    // Ex.: "Se a vida atual dele for 100 ou mais" => life + shield >= 100.
     if (cond.startsWith('targetLifeGTE:')) {
       const n = Number(cond.split(':')[1]);
-      return lastTarget && lastTarget.life >= n;
+      return lastTarget && getCurrentLife(lastTarget) >= n;
     }
     if (cond.startsWith('selfLifeLTE:')) {
       const n = Number(cond.split(':')[1]);
-      return caster.life <= n;
+      return caster && getCurrentLife(caster) <= n;
     }
     if (cond.startsWith('targetHasStatus:')) {
       const st = cond.split(':')[1];
@@ -92,7 +104,6 @@ const Engine = (() => {
     return true;
   }
 
-  // Executa uma lista de efeitos de uma habilidade
   function runEffects(effects, ctx, log) {
     for (const eff of effects) {
       runOneEffect(eff, ctx, log);
@@ -105,7 +116,6 @@ const Engine = (() => {
         const targets = resolveTargets(eff.target, ctx);
         let amount = eff.base;
         if (eff.scaling) amount += (eff.scaling.perUnit * countScalingUnits(eff.scaling, ctx));
-        // Kanth: bônus de "próximo dano em alvo único"
         for (const t of targets) {
           let finalAmount = amount;
           const boost = ctx.caster.statuses?.find(s => s.status === 'nextSingleTargetDamageBoost');
@@ -221,7 +231,10 @@ const Engine = (() => {
         if (checkCondition(eff.condition, ctx)) {
           const targets = resolveTargets(eff.target, ctx);
           for (const t of targets) {
-            if (eff.value === 'full') { t.life = t.maxLife; log(`${t.name} é totalmente curado!`); }
+            if (eff.value === 'full') {
+              t.life = t.maxLife;
+              log(`${t.name} é totalmente curado!`);
+            }
           }
         }
         break;
@@ -243,5 +256,5 @@ const Engine = (() => {
     }
   }
 
-  return { runEffects, applyDamage, applyHeal, resolveTargets, checkCondition };
+  return { runEffects, applyDamage, applyHeal, resolveTargets, checkCondition, getCurrentLife };
 })();
