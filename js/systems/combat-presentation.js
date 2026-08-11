@@ -46,20 +46,19 @@
     if(k==='delayed'){const s=point(diff.casterUid);if(s)glyph(s.x,s.y,k,'hv-delayed-rune',1700)}
   }
 
+  let queuedRender=false;
+  const originalRender=window.render;
+  if(typeof originalRender==='function')window.render=function(){if(window.HVCombatBusy){queuedRender=true;return;}return originalRender.apply(this,arguments)};
+  const originalAutoResolveStep=window.autoResolveStep;
+  if(typeof originalAutoResolveStep==='function')window.autoResolveStep=function(){if(window.HVCombatBusy&&window.HVCombatPromise)return window.HVCombatPromise.then(()=>originalAutoResolveStep.apply(this,arguments));return originalAutoResolveStep.apply(this,arguments)};
+
   async function playCombatSequence(diff){
     if(!diff)return 0;
     const caster=getUnit(diff.casterUid),ability=CARD_DB[caster?.cardId]?.abilities?.[diff.abilityIdx];
     if(!caster||!ability)return 0;
-    window.HVCombatBusy=true;
-    try{
-      await actionCue(caster.uid,kindOf(ability.effects?.[0]));
-      await wait(PRE_ACTION_MS);
-      for(const effect of ability.effects||[]){await animateEffect(effect,diff);await wait(STEP_MS)}
-      await wait(GAP_MS);
-      return true;
-    }finally{
-      window.HVCombatBusy=false;
-    }
+    const run=(async()=>{await actionCue(caster.uid,kindOf(ability.effects?.[0]));await wait(PRE_ACTION_MS);for(const effect of ability.effects||[]){await animateEffect(effect,diff);await wait(STEP_MS)}await wait(GAP_MS);})();
+    window.HVCombatBusy=true;window.HVCombatPromise=run;
+    try{return await run}finally{window.HVCombatBusy=false;window.HVCombatPromise=null;if(queuedRender){queuedRender=false;window.render?.()}}
   }
   window.playCombatSequence=playCombatSequence;
   window.HVCombatDiagnostics={locate(uid){return point(uid)},preview(uid,targetUid,kind='damage'){if(kind==='damage'&&uid&&targetUid)singleStrike(uid,targetUid);else{const p=point(uid);if(p)glyph(p.x,p.y,kind,'hv-combat-diagnostic')}},describe(){return{playCombatSequence:typeof window.playCombatSequence==='function',cards:document.querySelectorAll('.unit-card[data-uid]').length,fxLayer:!!document.getElementById('hvFxLayer')}}};
