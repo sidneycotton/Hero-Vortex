@@ -1,18 +1,25 @@
 :root {
-  --marble-dark: #1b1c20;
-  --marble-mid: #2a2c33;
-  --marble-light: #3c3f48;
-  --silver: #c8ccd6;
-  --silver-bright: #eef0f5;
+  /* ===== Hero Vortex — paleta inspirada nas cartas (mármore + ouro/prata) ===== */
+  --marble-dark: #1c1c1e;
+  --marble-mid: #2b2b2f;
+  --marble-light: #46464c;
+  --silver: #c7c9d1;
+  --silver-bright: #f0f1f5;
+  --silver-line: #8f92a0;
+  --gold: #cfa855;
+  --gold-bright: #f0d48a;
+  --gold-dim: #8a6a30;
   --blood: #8f1f1f;
-  --blood-bright: #c62a2a;
-  --gold: #b89a5a;
-  --ink: #0e0f12;
+  --blood-bright: #d43b3b;
+  --sapphire: #3c5f9e;
+  --sapphire-bright: #6f9be0;
+  --ink: #121214;
   --health-green: #4a8f5c;
   --health-yellow: #c9a227;
   --health-red: #a53232;
   --font-display: 'Cinzel', serif;
   --font-body: 'EB Garamond', serif;
+  --font-accent: 'Rajdhani', sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -21,7 +28,7 @@ html, body {
   margin: 0;
   padding: 0;
   background:
-    radial-gradient(ellipse at top, #2c2e35 0%, #101116 70%),
+    radial-gradient(ellipse at top, #2c2c30 0%, #131315 70%),
     repeating-linear-gradient(135deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 6px);
   background-attachment: fixed;
   color: var(--silver-bright);
@@ -37,11 +44,20 @@ html, body {
 .game-title {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  letter-spacing: 0.04em;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: 0.06em;
   color: var(--silver-bright);
-  text-shadow: 0 0 24px rgba(184,154,90,0.35), 0 2px 0 #000;
+  text-shadow: 0 0 24px rgba(207,168,85,0.3), 0 2px 0 #000;
   margin-bottom: 4px;
+}
+
+.game-title-accent {
+  background: linear-gradient(120deg, var(--gold-bright), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 14px rgba(207,168,85,0.4));
 }
 
 .setup-sub {
@@ -49,6 +65,9 @@ html, body {
   font-style: italic;
   font-size: 1.1rem;
   margin-bottom: 28px;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .setup-columns {
@@ -89,12 +108,12 @@ html, body {
 
 .pick-selected {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(184,154,90,0.4), 0 0 18px rgba(184,154,90,0.25);
+  box-shadow: 0 0 0 2px rgba(207,168,85,0.4), 0 0 18px rgba(207,168,85,0.25);
   background: linear-gradient(160deg, #4a3f2a, #2a2c33);
 }
 
 .pick-name { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
-.pick-meta { font-size: 0.82rem; color: var(--silver); opacity: 0.85; }
+.pick-meta { font-size: 0.82rem; color: var(--silver); opacity: 0.85; font-family: var(--font-accent); }
 
 .btn-start { margin-top: 28px; }
 
@@ -107,19 +126,20 @@ html, body {
 
 .mode-active {
   border-color: var(--gold);
-  background: rgba(184,154,90,0.18);
-  color: var(--gold);
+  background: rgba(207,168,85,0.18);
+  color: var(--gold-bright);
 }
 
 .role-block { margin-bottom: 18px; }
 .role-block h3 {
-  font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-family: var(--font-accent);
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--silver);
-  opacity: 0.8;
+  opacity: 0.85;
   margin: 10px 0 6px;
+  font-weight: 600;
 }
 
 .pick-disabled { opacity: 0.3; pointer-events: none; }
@@ -153,7 +173,8 @@ html, body {
 
 .declared-tag {
   display: inline-block;
-  font-family: var(--font-display);
+  font-family: var(--font-accent);
+  font-weight: 600;
   font-size: 0.75rem;
   color: var(--health-green);
   margin-bottom: 4px;
@@ -163,9 +184,37 @@ html, body {
   background: rgba(74,143,92,0.1);
 }
 
-.declared-tag.pass { color: var(--gold); border-color: rgba(184,154,90,0.4); background: rgba(184,154,90,0.1); }
+.declared-tag.pass { color: var(--gold); border-color: rgba(207,168,85,0.4); background: rgba(207,168,85,0.1); }
 
 .unit-highlight { box-shadow: 0 0 0 2px var(--gold); }
+
+.enemy-zone-label {
+  max-width: 640px;
+  margin: 26px auto 12px;
+  text-align: center;
+  font-family: var(--font-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+  color: var(--blood-bright);
+  opacity: 0.9;
+}
+
+.enemy-zone-label::before,
+.enemy-zone-label::after {
+  content: '';
+  display: inline-block;
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--blood-bright), transparent);
+  vertical-align: middle;
+  margin: 0 10px;
+}
+
+.enemy-declare-row {
+  max-width: 640px;
+  margin: 0 auto;
+}
 
 /* ===== Fila de resolução ===== */
 .queue-panel {
@@ -189,6 +238,7 @@ html, body {
   border: 1px solid rgba(200,204,214,0.2);
   font-size: 0.8rem;
   background: rgba(255,255,255,0.03);
+  font-family: var(--font-accent);
 }
 
 .queue-speed {
@@ -198,7 +248,7 @@ html, body {
 }
 
 .queue-resolved { opacity: 0.4; }
-.queue-current { border-color: var(--blood-bright); box-shadow: 0 0 10px rgba(198,42,42,0.4); }
+.queue-current { border-color: var(--blood-bright); box-shadow: 0 0 10px rgba(212,59,59,0.4); }
 
 .slot-empty {
   border: 1px dashed rgba(200,204,214,0.25);
@@ -215,9 +265,11 @@ html, body {
 
 /* ===== Botões ===== */
 .btn-primary, .btn-secondary {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.03em;
+  font-family: var(--font-accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
   padding: 10px 22px;
   border-radius: 8px;
   border: 1px solid var(--gold);
@@ -226,9 +278,8 @@ html, body {
 }
 
 .btn-primary {
-  background: linear-gradient(160deg, #7a6633, var(--gold));
+  background: linear-gradient(160deg, var(--gold-bright), var(--gold));
   color: #1a1508;
-  font-weight: 700;
 }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -257,7 +308,7 @@ html, body {
   font-size: 1.1rem;
 }
 
-.selecting-hint { color: var(--gold); font-style: italic; font-size: 0.9rem; font-family: var(--font-body); }
+.selecting-hint { color: var(--gold-bright); font-style: italic; font-size: 0.9rem; font-family: var(--font-body); }
 
 .topbar-actions { display: flex; gap: 10px; }
 
@@ -278,7 +329,7 @@ html, body {
 
 .zone-active {
   border-color: var(--gold);
-  box-shadow: 0 0 0 1px rgba(184,154,90,0.3), 0 0 30px rgba(184,154,90,0.08) inset;
+  box-shadow: 0 0 0 1px rgba(207,168,85,0.3), 0 0 30px rgba(207,168,85,0.08) inset;
 }
 
 .zone-title {
@@ -300,84 +351,164 @@ html, body {
   font-size: 1.3rem;
   letter-spacing: 0.2em;
   margin: 2px 0;
-  text-shadow: 0 0 10px rgba(198,42,42,0.5);
+  text-shadow: 0 0 10px rgba(212,59,59,0.5);
 }
 
 .unit-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
-/* ===== Carta de unidade ===== */
+/* ===== Carta de unidade — moldura ornamentada estilo relíquia ===== */
 .unit-card {
   background:
-    linear-gradient(160deg, var(--marble-light) 0%, var(--marble-mid) 60%, var(--marble-dark) 100%);
+    linear-gradient(160deg, var(--marble-light) 0%, var(--marble-mid) 55%, var(--marble-dark) 100%);
   border: 1px solid rgba(200,204,214,0.25);
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 12px 12px 14px;
   position: relative;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .unit-selectable {
   cursor: crosshair;
   border-color: var(--blood-bright);
-  box-shadow: 0 0 0 2px rgba(198,42,42,0.5), 0 0 20px rgba(198,42,42,0.35);
+  box-shadow: 0 0 0 2px rgba(212,59,59,0.5), 0 0 20px rgba(212,59,59,0.35);
 }
 .unit-selectable:hover { transform: scale(1.02); }
 
 .unit-dead { opacity: 0.45; filter: grayscale(0.8); }
 
-.unit-role-tag {
-  display: inline-block;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  margin-bottom: 6px;
-  font-family: var(--font-display);
-  border: 1px solid rgba(200,204,214,0.3);
+.unit-frame-top {
+  text-align: center;
+  margin-bottom: 8px;
 }
-.role-defensor { color: #8fb4d9; border-color: #8fb4d9; }
-.role-atacante { color: #d98f8f; border-color: #d98f8f; }
-.role-suporte { color: #a8d98f; border-color: #a8d98f; }
-.role-token { color: #c9a227; border-color: #c9a227; }
 
 .unit-name {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  margin-bottom: 8px;
   color: var(--silver-bright);
+  letter-spacing: 0.01em;
 }
 
-.unit-life-bar {
+/* Retrato central com moldura dupla ouro/prata, como nas cartas físicas */
+.unit-portrait-wrap {
   position: relative;
-  background: #1a1a1c;
-  border: 1px solid rgba(0,0,0,0.6);
-  border-radius: 6px;
-  height: 20px;
-  overflow: hidden;
-  margin-bottom: 6px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 168px;
+  margin: 0 auto 10px;
 }
 
-.unit-life-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--blood), var(--blood-bright));
-  transition: width 0.3s ease;
-}
-
-.unit-life-text {
+.unit-portrait {
   position: absolute;
   inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #55494a 0%, #241c1d 55%, #140f10 100%);
+  border: 3px solid var(--gold);
+  box-shadow:
+    0 0 0 2px var(--marble-dark),
+    0 0 0 5px var(--silver-line),
+    0 0 0 7px var(--marble-dark),
+    inset 0 0 18px rgba(0,0,0,0.6),
+    0 4px 12px rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
+  overflow: hidden;
+}
+
+.unit-portrait::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    conic-gradient(from 0deg, rgba(240,212,138,0.12), transparent 15%, transparent 85%, rgba(240,212,138,0.12));
+  pointer-events: none;
+}
+
+.unit-initials {
   font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 2rem;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px rgba(240,212,138,0.5), 0 2px 3px #000;
+  letter-spacing: 0.03em;
+  z-index: 1;
+}
+
+/* Coração de vida — canto inferior esquerdo do retrato, fiel à referência */
+.unit-life-heart {
+  position: absolute;
+  left: -6px;
+  bottom: -8px;
+  width: 52px;
+  height: 52px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heart-icon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--blood-bright);
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6)) drop-shadow(0 0 0 2px var(--marble-dark));
+  stroke: var(--marble-dark);
+  stroke-width: 0.6;
+}
+
+.heart-value {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.88rem;
+  color: var(--silver-bright);
   text-shadow: 0 1px 2px #000;
+  margin-top: 4px;
+}
+
+/* Emblema de classe — canto inferior direito do retrato */
+.unit-class-emblem {
+  position: absolute;
+  right: -6px;
+  bottom: -8px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 0 2px var(--marble-dark), 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.unit-class-emblem svg {
+  width: 22px;
+  height: 22px;
+}
+
+.role-defensor.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #4a6a9c, #22314a); color: var(--sapphire-bright); }
+.role-atacante.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #7a3030, #3a1414); color: #f0a0a0; }
+.role-suporte.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #3f6b4a, #1c2f21); color: #a8d9b0; }
+.role-token.unit-class-emblem { background: radial-gradient(circle at 35% 30%, #7a6633, #3a2f16); color: var(--gold-bright); }
+
+.unit-maxlife {
+  text-align: center;
+  font-family: var(--font-accent);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--silver);
+  margin-bottom: 8px;
 }
 
 .unit-statuses, .unit-counters {
@@ -385,18 +516,20 @@ html, body {
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 6px;
+  justify-content: center;
 }
 
 .status-chip, .counter-chip {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(184,154,90,0.18);
-  border: 1px solid rgba(184,154,90,0.4);
-  color: var(--gold);
+  background: rgba(207,168,85,0.18);
+  border: 1px solid rgba(207,168,85,0.4);
+  color: var(--gold-bright);
+  font-family: var(--font-accent);
 }
 
-.counter-chip { background: rgba(143,180,217,0.15); border-color: rgba(143,180,217,0.4); color: #8fb4d9; }
+.counter-chip { background: rgba(111,155,224,0.15); border-color: rgba(111,155,224,0.4); color: var(--sapphire-bright); }
 
 .unit-fallen {
   text-align: center;
@@ -414,7 +547,7 @@ html, body {
 
 .ability-btn {
   display: grid;
-  grid-template-columns: 26px 1fr auto;
+  grid-template-columns: 30px 1fr auto;
   align-items: center;
   gap: 8px;
   text-align: left;
@@ -432,7 +565,7 @@ html, body {
 
 .ability-btn:hover:not(:disabled) {
   border-color: var(--gold);
-  background: rgba(184,154,90,0.12);
+  background: rgba(207,168,85,0.12);
 }
 
 .ability-btn:disabled {
@@ -444,17 +577,18 @@ html, body {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--ink);
-  background: var(--silver-bright);
+  background: radial-gradient(circle at 35% 30%, var(--silver-bright), var(--silver));
+  border: 1px solid var(--gold);
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
 }
 
-.ability-cd, .ability-cd-max { font-size: 0.68rem; color: var(--gold); white-space: nowrap; }
+.ability-cd, .ability-cd-max { font-size: 0.68rem; color: var(--gold-bright); white-space: nowrap; font-family: var(--font-accent); }
 
 /* ===== Log ===== */
 .log-panel {
@@ -468,7 +602,8 @@ html, body {
 }
 
 .log-title {
-  font-family: var(--font-display);
+  font-family: var(--font-accent);
+  font-weight: 700;
   font-size: 0.85rem;
   letter-spacing: 0.05em;
   color: var(--gold);
@@ -481,4 +616,10 @@ html, body {
   color: var(--silver);
   padding: 3px 0;
   border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Acessibilidade */
+button:focus-visible, .pick-card:focus-visible, .unit-card:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
 }
