@@ -45,25 +45,27 @@ jobs:
             return vm.runInNewContext('(' + text + ')');
           }
 
-          function extractArray(src, names=['C','CARDS']) {
+          function findDeclaration(src, names, opening) {
             for (const name of names) {
-              const marker = `const ${name} = [`;
-              const start = src.indexOf(marker);
-              if (start < 0) continue;
-              const open = start + marker.length - 1;
-              const end = balanced(src, open, '[', ']');
-              return { value: parseLiteral(src.slice(open, end)), start, end };
+              const re = new RegExp('const\\s+' + name + '\\s*=\\s*\\' + opening);
+              const match = re.exec(src);
+              if (!match) continue;
+              const open = src.indexOf(opening, match.index + match[0].length - 1);
+              const close = opening === '[' ? ']' : '}';
+              const end = balanced(src, open, opening, close);
+              return {start: match.index, open, end};
             }
-            throw new Error('Card array not found');
+            throw new Error('Declaration not found: ' + names.join(', '));
+          }
+
+          function extractArray(src, names=['C','CARDS']) {
+            const p = findDeclaration(src, names, '[');
+            return { value: parseLiteral(src.slice(p.open, p.end)), start: p.start, end: p.end };
           }
 
           function extractObject(src, name) {
-            const marker = `const ${name} = {`;
-            const start = src.indexOf(marker);
-            if (start < 0) throw new Error(`Missing ${name}`);
-            const open = start + marker.length - 1;
-            const end = balanced(src, open, '{', '}');
-            return { value: parseLiteral(src.slice(open, end)), start, end };
+            const p = findDeclaration(src, [name], '{');
+            return { value: parseLiteral(src.slice(p.open, p.end)), start: p.start, end: p.end };
           }
 
           function stripArray(src) {
@@ -72,7 +74,7 @@ jobs:
           }
 
           function stripInjection(src) {
-            src = src.replace(/\n?\s*function inject\([\s\S]*?const t\s*=\s*setInterval\(\(\)\s*=>\s*\{if\(inject\(\)\)clearInterval\(t\)\},100\);/m, '\n');
+            src = src.replace(/\n?\s*function\s+inject\([\s\S]*?\n?\s*const\s+\w+\s*=\s*setInterval\([\s\S]*?\);/m, '\n');
             return src;
           }
 
@@ -87,14 +89,14 @@ jobs:
 
           const db = JSON.parse(fs.readFileSync('cards.json', 'utf8'));
           if (!Array.isArray(db.cards)) throw new Error('cards.json.cards must be an array');
-
           const mechanics = [];
 
-          // 1) New defenders: explicit objects + mechanics.
+          // New defenders: explicit card objects + mechanics.
           {
             let src = fs.readFileSync('new-defenders.js', 'utf8');
             const names = ['KALANY','DRAAK','DAXEN','LIZ','MOLDAR','URAGI','VENTROX'];
-            addCards(db, names.map(n => extractObject(src, n).value), 'new-defenders.js');
+            const cards = names.map(n => extractObject(src, n).value);
+            addCards(db, cards, 'new-defenders.js');
             for (const n of names) {
               const o = extractObject(src, n);
               src = src.slice(0, o.start) + src.slice(o.end);
@@ -102,10 +104,12 @@ jobs:
             src = src.replace(/\n\s*const ALL_NEW\s*=\s*\[[\s\S]*?\];\s*/m, '\n');
             src = src.replace(/\n\s*const nativeFetch\s*=\s*window\.fetch\.bind\(window\);[\s\S]*?\n\s*\};\s*\n/m, '\n');
             src = src.replace(/DRAAK\.name/g, '(CARD_DB.draak?.name || "Dra\'ak, a Sombra da Morte")');
+            src = src.replace(/DRAAK\.role/g, '(CARD_DB.draak?.role || "defensor")');
+            src = src.replace(/DRAAK\.life/g, '(CARD_DB.draak?.life || 100)');
             mechanics.push('/* ===== CONSOLIDATED: new-defenders.js ===== */\n' + src.trim());
           }
 
-          // 2) Advanced defenders.
+          // Advanced defenders.
           {
             let src = fs.readFileSync('more-defenders.js', 'utf8');
             const a = extractArray(src);
@@ -115,20 +119,19 @@ jobs:
             mechanics.push('/* ===== CONSOLIDATED: more-defenders.js ===== */\n' + src.trim());
           }
 
-          // 3) Amelia batch: recover the last complete card definitions from git history,
-          // while keeping the corrected Attacker role used by the live batch.
+          // Amelia batch: recover complete definitions from the historical pre-strip version,
+          // then apply the corrected Attacker class used by the current mechanics batch.
           {
             const historical = execFileSync('git', ['show', '1ae4d23f74f3eb6224e7e67f9fb53b06e7327493:new-defenders-2-data.js'], {encoding:'utf8'});
             const a = extractArray(historical);
-            const cards = a.value.map(c => ({...c, role:'atacante'}));
-            addCards(db, cards, 'new-defenders-2-data.js@1ae4d23f');
+            addCards(db, a.value.map(c => ({...c, role:'atacante'})), 'new-defenders-2-data.js@1ae4d23f');
             let src = fs.readFileSync('new-defenders-2.js', 'utf8');
             src = stripArray(src);
             src = stripInjection(src);
             mechanics.push('/* ===== CONSOLIDATED: new-defenders-2.js ===== */\n' + src.trim());
           }
 
-          // 4) Attacker batch 4.
+          // Attacker batch 4.
           {
             let src = fs.readFileSync('new-attackers-4.js', 'utf8');
             const a = extractArray(src);
@@ -138,7 +141,7 @@ jobs:
             mechanics.push('/* ===== CONSOLIDATED: new-attackers-4.js ===== */\n' + src.trim());
           }
 
-          // 5) Support batch 1.
+          // Support batch 1.
           {
             let src = fs.readFileSync('new-supports-1.js', 'utf8');
             const a = extractArray(src);
@@ -148,12 +151,12 @@ jobs:
             mechanics.push('/* ===== CONSOLIDATED: new-supports-1.js ===== */\n' + src.trim());
           }
 
-          // 6) Existing defender expansion was mechanics-only.
+          // Existing defender-expansion file is mechanics-only.
           mechanics.push('/* ===== CONSOLIDATED: defender-expansion.js ===== */\n' + fs.readFileSync('defender-expansion.js', 'utf8').trim());
 
           const ids = db.cards.map(c => c.id);
           if (ids.length !== new Set(ids).size) throw new Error('Duplicate card ids after consolidation');
-          if (!ids.length) throw new Error('No cards remain');
+          if (ids.length < 40) throw new Error(`Unexpectedly low card count: ${ids.length}`);
           fs.writeFileSync('cards.json', JSON.stringify(db, null, 2) + '\n');
 
           let engine = fs.readFileSync('engine.js', 'utf8');
@@ -162,26 +165,18 @@ jobs:
           console.log(`Consolidated ${db.cards.length} cards.`);
           NODE
 
-          python3 - <<'PY'
-          import json
-          d=json.load(open('cards.json'))
-          ids=[c['id'] for c in d['cards']]
-          assert len(ids)==len(set(ids)), 'duplicate card ids'
-          assert len(ids) >= 40, f'unexpectedly low card count: {len(ids)}'
-          print('cards.json:', len(ids), 'cards')
-          PY
-
+          node -e "JSON.parse(require('fs').readFileSync('cards.json','utf8')); console.log('cards.json valid')"
           node --check engine.js
           node --check app.js
           for f in *.js; do node --check "$f" >/dev/null; done
 
           python3 - <<'PY'
+          import re
           p='index.html'
           s=open(p).read()
-          legacy=['new-defenders.js','more-defenders.js','new-defenders-2.js','new-attackers-4.js','new-supports-1.js','defender-expansion.js']
-          for name in legacy:
-              import re
+          for name in ['new-defenders.js','more-defenders.js','new-defenders-2.js','new-attackers-4.js','new-supports-1.js','defender-expansion.js']:
               s=re.sub(r'\n?<script src="'+re.escape(name)+r'\?v=[^"]+"></script>', '', s)
+          s=s.replace('<!-- Card content: grouped by the new architecture, loaded from their stable implementations. -->\n','')
           open(p,'w').write(s)
           PY
 
@@ -192,14 +187,9 @@ jobs:
           find cards -type d -empty -delete 2>/dev/null || true
           find .github -type d -empty -delete 2>/dev/null || true
 
-          if grep -R -n --exclude-dir=.git -E 'new-defenders\.js|more-defenders\.js|new-defenders-2\.js|new-attackers-4\.js|new-supports-1\.js|defender-expansion\.js' .; then
-            echo 'Legacy runtime references remain.'
-            exit 1
-          fi
-          if grep -R -n --exclude-dir=.git 'function inject' .; then
-            echo 'Legacy card injection code remains.'
-            exit 1
-          fi
+          if grep -R -n --exclude-dir=.git -E 'new-defenders\.js|more-defenders\.js|new-defenders-2\.js|new-attackers-4\.js|new-supports-1\.js|defender-expansion\.js' .; then exit 1; fi
+          if grep -R -n --exclude-dir=.git 'function inject' .; then exit 1; fi
+          if grep -R -n --exclude-dir=.git 'window\.fetch.*cards\.json' .; then exit 1; fi
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
