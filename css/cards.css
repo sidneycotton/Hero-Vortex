@@ -23,5 +23,11 @@
 .hv-battle-stage .unit-card-frame{position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)}
 
 /* Initial-deployment cards: readable on phones instead of tiny thumbnails. */
-@media(max-width:720px){.hv-initial-layout{display:block!important}.hv-initial-panel{padding:14px;margin-bottom:14px}.hv-initial-card{min-height:92px;padding:12px 13px;grid-template-columns:34px minmax(0,1fr) auto;gap:8px}.hv-initial-options{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-bot-note{display:none!important}.hv-deck-catalog{padding:14px}.hv-deck-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-deck-card{min-height:180px;padding:13px}.hv-deck-card-name{font-size:.9rem}.hv-card-detail{padding:16px}.hv-battle-stage .unit-card{min-height:0;padding:14px}.hv-battle-stage .unit-name{font-size:1rem}}
+@media(max-width:720px){
+  .hv-initial-layout{display:block!important}.hv-initial-panel{padding:14px;margin-bottom:14px}.hv-initial-card{min-height:92px;padding:12px 13px;grid-template-columns:34px minmax(0,1fr) auto;gap:8px}.hv-initial-options{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-bot-note{display:none!important}.hv-deck-catalog{padding:14px}.hv-deck-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}.hv-deck-card{min-height:180px;padding:13px}.hv-deck-card-name{font-size:.9rem}.hv-card-detail{padding:16px}.hv-battle-stage .unit-card{min-height:0;padding:14px}.hv-battle-stage .unit-name{font-size:1rem}
+  .hv-battle-stage .unit-maxlife-sub{grid-column:1!important;grid-row:auto!important;width:100%;display:flex;clear:both}
+  .hv-battle-stage .unit-shield-panel{grid-column:1!important;grid-row:auto!important;width:100%;display:flex;clear:both}
+  .hv-battle-stage .unit-maxlife-sub + .unit-shield-panel{margin-top:2px}
+  .hv-battle-stage .unit-card{row-gap:9px}
+}
 @media(max-width:430px){.hv-deck-grid{grid-template-columns:1fr!important}.hv-deck-card{min-height:150px}.hv-initial-options{grid-template-columns:1fr!important}.hv-battle-stage .unit-card{padding:12px}.hv-battle-stage .unit-name{font-size:.96rem}.hv-battle-stage .unit-maxlife-sub,.hv-battle-stage .unit-shield-panel{min-height:32px}.hv-battle-stage .status-chip,.hv-battle-stage .counter-chip{font-size:.58rem}}
