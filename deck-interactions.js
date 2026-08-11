@@ -1,9 +1,12 @@
 /* Deckbuilder interaction polish.
-   Long-press a catalog card to perform the same action as a normal click.
-   Uses delegated pointer events so it also works after the deckbuilder rerenders. */
+   A normal tap remains a normal click. A hold only becomes visually active
+   after HOLD_VISUAL_MS, then toggles the card at HOLD_MS. Delegated pointer
+   events make this survive deckbuilder rerenders and work on touch + mouse. */
 (function(){
-  const HOLD_MS = 280;
+  const HOLD_MS = 420;
+  const HOLD_VISUAL_MS = 150;
   let timer = null;
+  let visualTimer = null;
   let activeCard = null;
   let activePointerId = null;
   let holdTriggered = false;
@@ -15,14 +18,11 @@
   }
 
   function clearHold(){
-    if (timer){
-      clearTimeout(timer);
-      timer = null;
-    }
+    if (timer){ clearTimeout(timer); timer = null; }
+    if (visualTimer){ clearTimeout(visualTimer); visualTimer = null; }
     if (activeCard) activeCard.classList.remove('hv-long-pressing');
     activeCard = null;
     activePointerId = null;
-    holdTriggered = false;
   }
 
   function activate(card){
@@ -30,22 +30,19 @@
 
     holdTriggered = true;
     card.classList.remove('hv-long-pressing');
-    suppressClick.add(card);
 
-    /* Dispatch a bubbling click event instead of HTMLElement.click().
-       This reaches both direct card listeners and delegated listeners used by
-       the deckbuilder's render code. */
+    /* Let the existing deckbuilder click handler do the actual add/remove. */
     card.dispatchEvent(new MouseEvent('click', {
       bubbles: true,
       cancelable: true,
       view: window,
       button: 0,
-      buttons: 0,
+      buttons: 0
     }));
 
-    /* If a browser/platform does not emit a follow-up click, don't leave the
-       suppression flag around long enough to affect a later normal click. */
-    window.setTimeout(() => suppressClick.delete(card), 500);
+    /* Suppress only a real follow-up browser click. */
+    suppressClick.add(card);
+    window.setTimeout(() => suppressClick.delete(card), 700);
   }
 
   document.addEventListener('pointerdown', function(e){
@@ -57,7 +54,14 @@
     activeCard = card;
     activePointerId = e.pointerId;
     holdTriggered = false;
-    card.classList.add('hv-long-pressing');
+
+    /* A quick tap has no hold animation. */
+    visualTimer = window.setTimeout(() => {
+      if (activeCard === card && !holdTriggered) {
+        card.classList.add('hv-long-pressing');
+      }
+      visualTimer = null;
+    }, HOLD_VISUAL_MS);
 
     timer = window.setTimeout(() => {
       if (activeCard === card) {
@@ -72,22 +76,16 @@
     const card = activeCard;
     const didHold = holdTriggered;
     clearHold();
-
-    /* Keep the suppression flag when the hold already activated the card.
-       The next trusted click is the browser's follow-up click. */
     if (card && !didHold) suppressClick.delete(card);
   }, {passive:true});
 
   document.addEventListener('pointercancel', clearHold, {passive:true});
-  document.addEventListener('pointerleave', function(e){
-    if (activePointerId === null || e.pointerId === activePointerId) clearHold();
-  }, {passive:true});
 
-  /* A trusted click immediately following a long-press is the browser's
-     follow-up click. Prevent it from toggling the card a second time. */
+  /* Synthetic click above has isTrusted === false and must pass through.
+     Only suppress the platform's trusted follow-up click after a hold. */
   document.addEventListener('click', function(e){
     const card = getCard(e.target);
-    if (!card || !suppressClick.has(card)) return;
+    if (!card || !suppressClick.has(card) || !e.isTrusted) return;
     suppressClick.delete(card);
     e.preventDefault();
     e.stopImmediatePropagation();
