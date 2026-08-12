@@ -1,0 +1,86 @@
+/* Hero Vortex — combat choreography: impact reads through shake, flash, embers, floating text.
+   Class names here are contracted with js/systems/combat-presentation.js — do not rename. */
+
+.hv-battle-screen .hv-cast-banner{display:block}
+
+/* pre-resolution cues */
+.unit-card.hv-caster-ready{animation:hvCasterReady .4s ease both;z-index:8}
+@keyframes hvCasterReady{0%{transform:translateY(0)}100%{transform:translateY(-4px);box-shadow:0 14px 28px rgba(0,0,0,.36),0 0 0 1px rgba(244,205,120,.5),0 0 20px rgba(244,205,120,.18)}}
+.unit-card.hv-target-marked{z-index:7;box-shadow:0 0 0 2px rgba(255,90,104,.6),0 0 22px rgba(255,90,104,.2)}
+
+/* action cue */
+.hv-action-cue{position:absolute;left:50%;top:8px;z-index:100;transform:translate(-50%,0) scale(.85);padding:5px 12px;border:1px solid rgba(244,205,120,.4);border-radius:7px;background:rgba(6,7,11,.94);font:800 .58rem var(--font-accent);letter-spacing:.14em;color:var(--gold-hi);pointer-events:none;animation:hvCue .3s ease both;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.hv-action-damage{border-color:rgba(255,90,104,.5);color:#ffb3b8}
+.hv-action-heal{color:#9ff0c3;border-color:rgba(89,216,160,.4)}
+.hv-action-shield{color:#c3ddff;border-color:rgba(90,168,255,.4)}
+.hv-action-status{color:#e5cbff;border-color:rgba(200,139,255,.36)}
+@keyframes hvCue{0%{opacity:0;transform:translate(-50%,-6px) scale(.8)}30%{opacity:1;transform:translate(-50%,0) scale(1)}75%{opacity:1}100%{opacity:0}}
+
+/* screen shake */
+.hv-shake-mild{animation:hvShakeMild .3s ease}
+.hv-shake-hard{animation:hvShakeHard .38s ease}
+@keyframes hvShakeMild{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes hvShakeHard{0%,100%{transform:translate(0,0)}15%{transform:translate(-8px,1px)}30%{transform:translate(8px,-1px)}45%{transform:translate(-5px,0)}60%{transform:translate(5px,0)}80%{transform:translate(-2px,0)}}
+
+/* impact jolt */
+.hv-jolt{animation:hvJolt .26s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes hvJolt{0%{transform:translateX(0)}20%{transform:translateX(-5px) rotate(-.7deg)}45%{transform:translateX(5px) rotate(.7deg)}70%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+
+/* inset flashes, per effect kind */
+.hv-flash-damage{animation:hvFlashDamage .5s ease}
+.hv-flash-heal{animation:hvFlashHeal .5s ease}
+.hv-flash-shield{animation:hvFlashShield .5s ease}
+.hv-flash-status{animation:hvFlashStatus .5s ease}
+.hv-flash-buff{animation:hvFlashBuff .5s ease}
+.hv-flash-taunt{animation:hvFlashTaunt .5s ease}
+.hv-flash-sacrifice{animation:hvFlashSacrifice .5s ease}
+.hv-flash-move{animation:hvFlashMove .35s ease}
+.hv-flash-delayed{animation:hvFlashStatus .5s ease}
+@keyframes hvFlashDamage{0%{box-shadow:0 0 0 rgba(255,90,104,0)}35%{box-shadow:0 0 0 3px rgba(255,90,104,.9) inset,0 0 22px rgba(255,90,104,.5)}100%{box-shadow:0 0 0 rgba(255,90,104,0)}}
+@keyframes hvFlashHeal{0%{box-shadow:0 0 0 rgba(89,216,160,0)}35%{box-shadow:0 0 0 3px rgba(89,216,160,.85) inset,0 0 22px rgba(89,216,160,.45)}100%{box-shadow:0 0 0 rgba(89,216,160,0)}}
+@keyframes hvFlashShield{0%{box-shadow:0 0 0 rgba(90,168,255,0)}35%{box-shadow:0 0 0 3px rgba(90,168,255,.85) inset,0 0 22px rgba(90,168,255,.45)}100%{box-shadow:0 0 0 rgba(90,168,255,0)}}
+@keyframes hvFlashStatus{0%{box-shadow:0 0 0 rgba(200,139,255,0)}35%{box-shadow:0 0 0 3px rgba(200,139,255,.8) inset,0 0 22px rgba(200,139,255,.42)}100%{box-shadow:0 0 0 rgba(200,139,255,0)}}
+@keyframes hvFlashBuff{0%{box-shadow:0 0 0 rgba(227,180,92,0)}35%{box-shadow:0 0 0 3px rgba(227,180,92,.85) inset,0 0 22px rgba(227,180,92,.45)}100%{box-shadow:0 0 0 rgba(227,180,92,0)}}
+@keyframes hvFlashTaunt{0%{box-shadow:0 0 0 rgba(255,164,95,0)}35%{box-shadow:0 0 0 3px rgba(255,164,95,.8) inset,0 0 20px rgba(255,164,95,.4)}100%{box-shadow:0 0 0 rgba(255,164,95,0)}}
+@keyframes hvFlashSacrifice{0%{box-shadow:0 0 0 rgba(213,110,110,0)}35%{box-shadow:0 0 0 3px rgba(213,110,110,.8) inset,0 0 20px rgba(213,110,110,.42)}100%{box-shadow:0 0 0 rgba(213,110,110,0)}}
+@keyframes hvFlashMove{0%,100%{box-shadow:0 0 0 rgba(200,210,230,0)}50%{box-shadow:0 0 0 2px rgba(200,210,230,.55) inset}}
+
+/* taunt shake */
+.hv-taunt-shake{animation:hvTauntShake .46s ease-in-out}
+@keyframes hvTauntShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+/* defeat: resting state */
+.hv-defeated{animation:hvDefeat .55s ease forwards}
+@keyframes hvDefeat{0%{transform:translateY(0) rotate(0);filter:grayscale(0)}60%{transform:translateY(6px) rotate(-1.6deg)}100%{transform:translateY(9px) rotate(-2.6deg);filter:grayscale(.88);opacity:.5}}
+
+/* summon / revive */
+.hv-summon-enter{animation:hvSummonEnter2 .38s var(--ease-spring)}
+.hv-revive-enter{animation:hvSummonEnter2 .42s var(--ease-spring)}
+@keyframes hvSummonEnter2{0%{opacity:.25;transform:scale(.88)}60%{opacity:1;transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
+
+/* field-wide effect wave */
+.hv-field-wave{animation:hvFieldWave .75s ease-out}
+@keyframes hvFieldWave{0%{box-shadow:inset 0 0 0 rgba(139,123,255,0)}40%{box-shadow:inset 0 0 80px rgba(139,123,255,.16)}100%{box-shadow:inset 0 0 0 rgba(139,123,255,0)}}
+
+/* floating text */
+.hv-float-layer{position:absolute;inset:0;overflow:visible;pointer-events:none;z-index:20}
+.hv-float-text{position:absolute;top:-4px;left:50%;transform:translateX(-50%);font:800 .7rem var(--font-accent);letter-spacing:.02em;white-space:nowrap;color:var(--text-hi);background:rgba(8,7,5,.92);border:1px solid var(--line-strong);border-radius:6px;padding:3px 8px;pointer-events:none;z-index:30;animation:hvFloatText .95s ease forwards;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.hv-float-damage{color:#ff9a9f;border-color:rgba(255,90,104,.4)}
+.hv-float-heal{color:#8fe6ac;border-color:rgba(89,216,160,.36)}
+.hv-float-shield{color:#9dc4ff;border-color:rgba(90,168,255,.36)}
+.hv-float-shield-gain{color:#9dc4ff;border-color:rgba(90,168,255,.36)}
+@keyframes hvFloatText{0%{opacity:0;transform:translate(-50%,4px) scale(.8)}20%{opacity:1;transform:translate(-50%,-4px) scale(1.06)}100%{opacity:0;transform:translate(-50%,-28px) scale(1)}}
+
+/* ember burst */
+.hv-ember{position:fixed;top:0;left:0;width:4px;height:4px;border-radius:50%;pointer-events:none;z-index:100060;transform:translate(-50%,-50%);animation:hvEmber .6s cubic-bezier(.2,.7,.4,1) forwards}
+.hv-ember-damage{background:#ff5a3c;box-shadow:0 0 6px 1.5px rgba(255,90,60,.85)}
+.hv-ember-heal{background:#59d8a0;box-shadow:0 0 6px 1.5px rgba(89,216,160,.8)}
+.hv-ember-buff{background:#e3b45c;box-shadow:0 0 6px 1.5px rgba(227,180,92,.8)}
+.hv-ember-shield{background:#5aa8ff;box-shadow:0 0 6px 1.5px rgba(90,168,255,.8)}
+.hv-ember-status{background:#c88bff;box-shadow:0 0 6px 1.5px rgba(200,139,255,.75)}
+.hv-ember-summon{background:#70d9ff;box-shadow:0 0 6px 1.5px rgba(112,217,255,.8)}
+.hv-ember-sacrifice{background:#d56e6e;box-shadow:0 0 6px 1.5px rgba(213,110,110,.75)}
+.hv-ember-revive{background:#73e7b0;box-shadow:0 0 6px 1.5px rgba(115,231,176,.8)}
+@keyframes hvEmber{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--ang)) translateX(0) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--ang)) translateX(var(--dist)) scale(.3)}}
+
+@media(max-width:720px){.hv-action-cue{font-size:.54rem;padding:4px 9px}.hv-float-text{font-size:.64rem}}

@@ -1,0 +1,2141 @@
+{
+  "cards": [
+    {
+      "id": "nira",
+      "name": "Nira, Rainha do Rock",
+      "life": 66,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Escolha um aliado. No próximo turno, instâncias de dano que ele tomar não podem exceder 10.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "damageCap",
+              "value": 10,
+              "duration": 1,
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 1,
+          "text": "Conceda +5 de vida para cada aliado, incluindo os aliados que estiverem na sua mão.",
+          "effects": [
+            {
+              "type": "buffMaxLife",
+              "value": 5,
+              "target": "allAlliesIncludingHand"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo. Aumente isso em 1 para cada inimigo no campo e cada inimigo na mão do seu oponente.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 5,
+              "target": "chooseEnemy",
+              "scaling": {
+                "perUnit": 1,
+                "count": "allEnemiesFieldAndHand"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "babawibby",
+      "name": "Babawibby o Mais Melhor de Bom",
+      "life": 50,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Crie uma Máquina de Guerra.",
+          "effects": [
+            {
+              "type": "createToken",
+              "tokenId": "maquina_de_guerra"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Destrua uma Máquina de Guerra aliada para causar 20 de dano em um inimigo.",
+          "effects": [
+            {
+              "type": "sacrificeToken",
+              "tokenId": "maquina_de_guerra"
+            },
+            {
+              "type": "dealDamage",
+              "base": 20,
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Recupere 8 de vida de todos os aliados.",
+          "effects": [
+            {
+              "type": "heal",
+              "base": 8,
+              "target": "allAllies"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mariana",
+      "name": "Mariana, Tocada Pela Luz",
+      "life": 61,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 13 de dano em um inimigo. Ganhe essa quantidade de contadores da Proteção.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 13,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "gainCounter",
+              "counter": "protecao",
+              "value": 13
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Gaste todos os seus contadores da Proteção para curar um aliado nessa mesma quantidade.",
+          "effects": [
+            {
+              "type": "spendCounterToHeal",
+              "counter": "protecao",
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Um aliado se move imediatamente.",
+          "effects": [
+            {
+              "type": "moveNow",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rankorr",
+      "name": "Rankorr, Desafiante Dracônico",
+      "life": 83,
+      "role": "defensor",
+      "passive": "Quando um Escudo em mim expirar, ele explode causando a vida restante do mesmo como dano em todos os inimigos.",
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em todos os inimigos.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 5,
+              "target": "allEnemies"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 1,
+          "text": "Eu ganho um Escudo de 30 de vida até o final do próximo turno.",
+          "effects": [
+            {
+              "type": "applyShield",
+              "value": 30,
+              "duration": 2,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mularna",
+      "name": "Mularna, a Deusa da Guerra",
+      "life": 60,
+      "role": "defensor",
+      "passive": "Quando minha vida chegar em 40 e em 20 pela primeira vez, me conceda um Escudo de 20 de vida por 2 turnos.",
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em um inimigo. Se eu tiver um Escudo, dano causado por meu Suporte neste turno aumenta em 5.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "conditionalBuff",
+              "condition": "selfHasShield",
+              "buff": {
+                "type": "damageBoost",
+                "value": 5,
+                "target": "allySuporte",
+                "duration": 1
+              }
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cure 4 de vida de cada aliado. Se eu tiver um Escudo, use a Habilidade mais rápida do meu Atacante.",
+          "effects": [
+            {
+              "type": "heal",
+              "base": 4,
+              "target": "allAllies"
+            },
+            {
+              "type": "conditionalTrigger",
+              "condition": "selfHasShield",
+              "trigger": "useCheapestAbility",
+              "target": "allyAtacante"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reuben",
+      "name": "Reuben Mahalô",
+      "life": 60,
+      "role": "suporte",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Cause 6 de dano no Defensor inimigo, 4 de dano no Atacante inimigo e 2 de dano no Suporte inimigo.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 6,
+              "target": "enemyDefensor"
+            },
+            {
+              "type": "dealDamage",
+              "base": 4,
+              "target": "enemyAtacante"
+            },
+            {
+              "type": "dealDamage",
+              "base": 2,
+              "target": "enemySuporte"
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 1,
+          "text": "Recupere 15 de vida de um aliado que ainda não se moveu.",
+          "effects": [
+            {
+              "type": "heal",
+              "base": 15,
+              "target": "chooseAllyNotMovedYet"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Eu Provoco o Defensor inimigo.",
+          "effects": [
+            {
+              "type": "taunt",
+              "target": "enemyDefensor",
+              "source": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ajax",
+      "name": "Ajax, o Ultra-Humano",
+      "life": 90,
+      "role": "defensor",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Eu e um inimigo lutamos. Eu causo 15 de dano nele e ele causa 15 de dano em mim.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 15,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "dealDamage",
+              "base": 15,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Cause 10 de dano em um inimigo. Ele Sangra, tomando exatamente 5 de dano no final de cada turno até receber um efeito de cura.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 10,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "applyStatus",
+              "status": "sangramento",
+              "value": 5,
+              "duration": -1,
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 10 de dano em um inimigo. Repita se ele estiver Sangrando e repita novamente se a minha vida atual for 40 ou menos.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 10,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "conditionalRepeat",
+              "condition": "targetHasStatus:sangramento"
+            },
+            {
+              "type": "conditionalRepeat",
+              "condition": "selfLifeLTE:40"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "maquina_de_guerra",
+      "name": "Máquina de Guerra",
+      "life": 15,
+      "role": "token",
+      "passive": null,
+      "isToken": true,
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 8 de dano.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grath",
+      "name": "Grath, Punho Furioso",
+      "life": 77,
+      "role": "atacante",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 15 de dano em um inimigo. Se a vida atual dele for 100 ou mais, cause mais 15 de dano.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 15,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "conditionalDamage",
+              "condition": "targetLifeGTE:100",
+              "base": 15,
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 4,
+          "text": "Cause 20 de dano em um inimigo. O alvo não pode utilizar habilidades neste turno.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 20,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "applyStatus",
+              "status": "silenced",
+              "duration": 1,
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 1,
+          "text": "Cause 10 de dano no Defensor inimigo. Se ele ganhar vida neste turno, eu Ganho a mesma quantidade.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 10,
+              "target": "enemyDefensor"
+            },
+            {
+              "type": "conditionalLifesteal",
+              "condition": "targetHealedThisTurn",
+              "target": "enemyDefensor",
+              "healSelf": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahram",
+      "name": "Mahram, a Garça Branca",
+      "life": 70,
+      "role": "atacante",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Comece uma Chuva por 2 turnos. Enquanto ela estiver ativa, aliados se curam em 10 de vida no final do turno.",
+          "effects": [
+            {
+              "type": "applyFieldEffect",
+              "effect": "chuva",
+              "duration": 2
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Comece uma Tempestade de Areia por 2 turnos. Enquanto ela estiver ativa, inimigos perdem 10 de vida no final do turno.",
+          "effects": [
+            {
+              "type": "applyFieldEffect",
+              "effect": "tempestade_de_areia",
+              "duration": 2
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 1,
+          "text": "Cause 30 de dano a mim mesma. No final do próximo turno, cause 30 de dano em um inimigo e se isso matar ele, me cure totalmente.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 30,
+              "target": "self"
+            },
+            {
+              "type": "delayedEffect",
+              "delay": 1,
+              "effects": [
+                {
+                  "type": "dealDamage",
+                  "base": 30,
+                  "target": "chooseEnemy"
+                },
+                {
+                  "type": "conditionalHeal",
+                  "condition": "lastTargetKilled",
+                  "target": "self",
+                  "value": "full"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kanth",
+      "name": "Kanth Sênior, Kanth Júnior e Kanth Neto",
+      "life": 25,
+      "role": "suporte",
+      "passive": "Quando eu for jogado crie duas cópias minhas.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Escolha um aliado, a próxima vez que ele causar dano em apenas um inimigo, aumente em 5.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "nextSingleTargetDamageBoost",
+              "value": 5,
+              "duration": -1,
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 10,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo. Se uma cópia minha está morta, retorne-a a vida com apenas 5 de vida restante.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 5,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "reviveCopy",
+              "cardId": "kanth",
+              "life": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kalany",
+      "name": "Kalany, à Sombra da Morte",
+      "life": 50,
+      "role": "defensor",
+      "passive": "No começo de cada turno, coloque um Contador do Fim em mim. Quando eu tiver 5, me transforme em Dra'ak.",
+      "deckDescription": "Acumula Contadores do Fim a cada turno e, após cinco, se transforma em Draak, ficando muito mais resistente.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo. Me cure 5 de vida.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 5,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "heal",
+              "base": 5,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Neste turno, inimigos causam 3 de dano a menos com seus ataques.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "enemyAttackDamageReduction",
+              "value": 3,
+              "duration": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "draak",
+      "name": "Dra'ak, a Sombra da Morte",
+      "life": 100,
+      "role": "defensor",
+      "isToken": true,
+      "passive": "Quando eu me Transformar, neste turno, outros aliados não podem ser danificados ou alvejados por inimigos.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 20 de dano.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 20,
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "daxen_ciris",
+      "name": "Daxen-Ciris",
+      "life": 85,
+      "role": "defensor",
+      "deckDescription": "Copia as habilidades mais rápidas dos Defensores e Atacantes inimigos e se protege de uma habilidade no turno seguinte.",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Eu ganho +7 de vida, use a Habilidade mais rápida do Defensor inimigo.",
+          "effects": [
+            {
+              "type": "heal",
+              "base": 7,
+              "target": "self"
+            },
+            {
+              "type": "useFastestEnemyAbility",
+              "role": "defensor"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 7 de dano, use a Habilidade mais rápida do Atacante inimigo.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 7,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "useFastestEnemyAbility",
+              "role": "atacante"
+            }
+          ]
+        },
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Eu ganho +14 de vida. No próximo turno, anule a primeira Habilidade que me alvejar.",
+          "effects": [
+            {
+              "type": "heal",
+              "base": 14,
+              "target": "self"
+            },
+            {
+              "type": "applyStatus",
+              "status": "daxenNullifyNext",
+              "value": 1,
+              "duration": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "liz",
+      "name": "Liz, Medrosa e Afrontosa",
+      "life": 70,
+      "role": "defensor",
+      "deckDescription": "Redireciona parte do dano para um aliado, provoca inimigos e pode refletir o dano recebido.",
+      "passive": "No começo de cada turno, escolha um aliado, metade do dano que eu tomaria é redirecionado para ele.",
+      "abilities": [
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Eu Provoco um inimigo. Dano que ele causar em mim neste turno é reduzido em 5. Dano negativo se torna Cura.",
+          "effects": [
+            {
+              "type": "taunt",
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "applyStatus",
+              "status": "lizReduction",
+              "value": 5,
+              "duration": 1,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 3,
+          "text": "Nos próximos 2 turnos, dano causado em mim é aumentado em 5 e quando eu for danificada, cause o mesmo dano em um inimigo.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "lizReflect",
+              "value": 5,
+              "duration": 2,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "moldar",
+      "name": "Moldar, Paciência Solar",
+      "life": 80,
+      "role": "defensor",
+      "deckDescription": "Converte os golpes recebidos em força e pune inimigos que ferem seus aliados antes de sua vez.",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Eu ganho +10 de vida. Repita para cada vez que eu fui danificado neste turno.",
+          "effects": [
+            {
+              "type": "healPerDamageTaken",
+              "value": 10,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "speed": 0,
+          "cooldown": 0,
+          "text": "Não faça nada. \"Perder a paciência é perder a batalha...\"",
+          "effects": []
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Até eu agir, quando um aliado for danificado, eu revido causando 6 de dano em um inimigo.",
+          "effects": [
+            {
+              "type": "armMoldarRevenge"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uragi",
+      "name": "Uragi, Traidor Redimido",
+      "life": 90,
+      "role": "defensor",
+      "deckDescription": "Acumula Fúria ao ser ferido, repete sua habilidade ofensiva e pode atrair todos os alvos inimigos.",
+      "passive": "Quando eu for danificado, coloque 1 contador da Fúria em mim.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 6 de dano em um inimigo e 3 em outro. Consuma 3 contadores de Fúria para utilizar essa habilidade novamente neste turno.",
+          "effects": [
+            {
+              "type": "uragiFuryAttack"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 1,
+          "text": "Eu me torno o alvo de todas as habilidades inimigas neste turno.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "uragiTauntAll",
+              "value": 1,
+              "duration": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ventrox",
+      "name": "Ventrox, Virulento Temível",
+      "life": 88,
+      "role": "defensor",
+      "deckDescription": "Contamina a próxima habilidade de um inimigo, alterna entre vida e escudo e sacrifica sua própria vida para curar aliados.",
+      "passive": null,
+      "abilities": [
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Eu causo 7 de dano em um inimigo. No próximo turno a Habilidade dele vira uma cópia dessa minha Habilidade.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 7,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "copyVentroxAbilityNextTurn",
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Escolha um: Eu ganho +7 de vida. OU Eu ganho um escudo de 14 de vida neste turno.",
+          "effects": [
+            {
+              "type": "chooseVentroxDefense"
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Me cause 14 de dano. Cure 14 de vida dos meus outros aliados.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 14,
+              "target": "self"
+            },
+            {
+              "type": "heal",
+              "base": 14,
+              "target": "allAllies"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "benicio",
+      "name": "Benício, Herói em Treinamento",
+      "life": 81,
+      "role": "defensor",
+      "passive": "Sempre que você criar um aliado, conceda 5 de Escudo a ele. Habilidades aliadas que criam aliados, aceleram em 2.",
+      "deckDescription": "Protege unidades recém-criadas e prepara aliados para contra-atacar golpes pesados.",
+      "abilities": [
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Escolha um aliado, o próximo ataque dele causa 5 de dano a mais. Ele não pode ser provocado até o final do próximo turno.",
+          "effects": [
+            {
+              "type": "applyStatus",
+              "status": "benicioNextAttack",
+              "value": 5,
+              "duration": 2,
+              "target": "chooseAlly"
+            },
+            {
+              "type": "applyStatus",
+              "status": "benicioUntaggable",
+              "value": 1,
+              "duration": 2,
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Neste turno, se um aliado for tomar 15 de dano, ele ataca imediatamente primeiro. Se ele já tiver agido, ele ganha um Escudo de 10 de vida invés.",
+          "effects": [
+            {
+              "type": "armBenicioEmergency"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rahdan",
+      "name": "Rahdan, Rei das Almas",
+      "life": 81,
+      "role": "defensor",
+      "passive": "Quando um aliado for atacar um inimigo, eu roubo 2 de vida do aliado e aumento o dano do ataque em 4.",
+      "deckDescription": "Rouba vida para fortalecer ataques aliados e converte a própria vida em Escudo.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Roube 4 de vida de um inimigo e 2 dos outros. Eles causam 2 de dano a menos neste turno.",
+          "effects": [
+            {
+              "type": "rahdanDrainEnemies"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em mim. Me dê um escudo com 16 de vida.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "self"
+            },
+            {
+              "type": "applyShield",
+              "value": 16,
+              "duration": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zengrath",
+      "name": "Zengrath, Ódio Encarnado",
+      "life": 70,
+      "role": "defensor",
+      "passive": "Quando eu for Jogado, eu ganho +2 de vida máxima para cada unidade que já morreu neste jogo.",
+      "deckDescription": "Fica mais resistente com as mortes do jogo e transforma vida máxima em dano.",
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause dano igual a 10% da minha vida máxima em um inimigo. (Arredondado para cima.)",
+          "effects": [
+            {
+              "type": "zengrathMaxLifeDamage",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Cause 2 de dano em todos os inimigos. Eu ganho +2 de vida máxima para cada inimigo atingido.",
+          "effects": [
+            {
+              "type": "zengrathMassAttack"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "predador_labirinto",
+      "name": "O Predador do Labirinto",
+      "life": 60,
+      "role": "defensor",
+      "passive": "Quando eu for danificado, crie uma cópia idêntica a mim. (Até um máximo de 15 podem existir ao mesmo tempo.)",
+      "deckDescription": "Cria cópias ao ser danificado e escala quando sua horda chega ao limite.",
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 1 de dano em um inimigo. Se 15 cópias existem, cause 1 de dano a mais.",
+          "effects": [
+            {
+              "type": "predadorAttack"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Conceda 1 de Escudo para todos os aliados neste turno. Se 15 cópias existem, conceda 1 a mais.",
+          "effects": [
+            {
+              "type": "predadorShield"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arborzilla",
+      "name": "Arborzilla, Forte para Carvalho",
+      "life": 86,
+      "role": "defensor",
+      "passive": "Quando eu atacar um inimigo, ataque também um inimigo que foi criado.",
+      "deckDescription": "Ataca inimigos criados, melhora seu golpe com abates e redistribui efeitos purificados.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 5 de dano em um inimigo e ganhe 5 de Escudo neste turno. Se essa Habilidade matou um inimigo, melhore ela em 1 permanentemente.",
+          "effects": [
+            {
+              "type": "arborzillaAttack"
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Purifique um aliado. Coloque os efeitos removidos dele em um inimigo.",
+          "effects": [
+            {
+              "type": "purifyTransfer",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "porteiro",
+      "name": "O Porteiro",
+      "life": 84,
+      "role": "defensor",
+      "passive": null,
+      "deckDescription": "Provoca aliados, transforma seus golpes em cura e pune quem não o enfrenta.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Eu causo 8 de dano em um inimigo. Se ele não me atacar neste turno, cause mais 8. Bom dia.",
+          "effects": [
+            {
+              "type": "porteiroMark",
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Purifique uma unidade.",
+          "effects": [
+            {
+              "type": "purify",
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 1,
+          "text": "Eu Provoco um aliado. Ao invés de me danificar, o dano dele me cura neste turno.",
+          "effects": [
+            {
+              "type": "porteiroTauntAlly",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "varghul",
+      "name": "Varghul, Ressurreto Insano",
+      "life": 84,
+      "role": "defensor",
+      "passive": "Quando um aliado morrer, cause 6 de dano em um inimigo.",
+      "deckDescription": "Cria cópias descartáveis e transforma mortes de aliados em dano imediato.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Crie uma cópia minha. Ela ataca um inimigo causando 6 de dano e depois morre.",
+          "effects": [
+            {
+              "type": "varghulStrikeCopy",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Crie uma Cópia minha. Ela Provoca um Inimigo e morre após a Habilidade do inimigo ser usada.",
+          "effects": [
+            {
+              "type": "varghulTauntCopy",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cm9",
+      "name": "CM-9, O Sistema de Segurança",
+      "life": 88,
+      "role": "defensor",
+      "passive": null,
+      "deckDescription": "Premia ações rápidas, converte dano recente em Escudo e retalia quando entra em alerta.",
+      "abilities": [
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Neste turno, sempre que um aliado utilizar uma habilidade antes do inimigo da mesma classe, cause 10 de dano no inimigo.",
+          "effects": [
+            {
+              "type": "armCM9Strike"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 2,
+          "text": "Me dê um escudo com vida igual a quantidade de vida que eu perdi desde o último turno.",
+          "effects": [
+            {
+              "type": "cm9Shield"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 1,
+          "text": "Eu entro em alerta neste turno. Quando eu for danificado, cause 2 de dano em todos os inimigos e aumente esse dano em 1.",
+          "effects": [
+            {
+              "type": "armCM9Alert"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boi",
+      "name": "Boi, o Saparrudo",
+      "life": 86,
+      "role": "defensor",
+      "passive": "Uma vez por jogo, enquanto eu estiver na sua mão, você pode me revelar. Se você fizer isso, eu absorvo uma Habilidade inimiga. (Cancele todos os Efeitos dela.)",
+      "deckDescription": "Absorve uma Habilidade inimiga da mão e pode reutilizá-la como se fosse sua.",
+      "abilities": [
+        {
+          "speed": 0,
+          "cooldown": 0,
+          "icon": "frog",
+          "text": "Essa Habilidade se Torna a Habilidade Absorvida.",
+          "effects": [
+            {
+              "type": "boiUseAbsorbed"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Eu ganho X de Escudo e causo X de Dano em um inimigo. Onde X é o dobro da quantidade de turnos em que eu estou no campo.",
+          "effects": [
+            {
+              "type": "boiScalingAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zeth",
+      "name": "Zeth, Túmulo Vivo",
+      "life": 99,
+      "role": "defensor",
+      "passive": null,
+      "deckDescription": "Aplica Decaimento crescente e usa seu Escudo para espalhar o efeito aos inimigos.",
+      "abilities": [
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Cause 9 de dano em mim.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 9,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 2,
+          "text": "Coloque Decaimento 4 no inimigo.",
+          "effects": [
+            {
+              "type": "applyDecay",
+              "value": 4,
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 2,
+          "text": "Eu ganho um escudo de 18 de vida. No final do turno, se eu tiver esse escudo, aplique Decaimento 3 em todos os inimigos.",
+          "effects": [
+            {
+              "type": "zethShieldDecay"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "amelia",
+      "name": "Amelia, Ascendente Incômoda",
+      "life": 74,
+      "role": "atacante",
+      "deckDescription": "Pune inimigos que já agiram, altera a velocidade do próximo turno e força um alvo a agir imediatamente.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 15 de dano em todos os inimigos que já utilizaram uma habilidade neste turno.",
+          "effects": [
+            {
+              "type": "ameliaPunishActed"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Seus outros aliados são mais rápidos em 5 no próximo turno. Inimigos são mais rápidos em 3 no próximo turno.",
+          "effects": [
+            {
+              "type": "ameliaTempo"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 18 de dano em um inimigo. O alvo age imediatamente.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 18,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "moveNow",
+              "target": "lastTarget"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "anuben",
+      "name": "Anuben, Perdido no Tempo",
+      "life": 74,
+      "role": "atacante",
+      "deckDescription": "Manipula a ordem do turno, causa dano em área e marca um inimigo para uma explosão quando o atingir.",
+      "abilities": [
+        {
+          "speed": 1,
+          "cooldown": 4,
+          "text": "Cause 6 de dano em um inimigo. No próximo turno, apenas eu posso usar Habilidades.",
+          "effects": [
+            {
+              "type": "anubenSoloTurn"
+            },
+            {
+              "type": "dealDamage",
+              "base": 6,
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Cause 6 de dano em todos os inimigos.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 6,
+              "target": "allEnemies"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Marque um inimigo, quando eu danificar ele, remova essa marca, causando 15 de dano.",
+          "effects": [
+            {
+              "type": "anubenMark",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leticia",
+      "name": "Letícia, Sacrifício Pela Ciência",
+      "life": 70,
+      "role": "atacante",
+      "deckDescription": "Sacrifica a própria vida para pressionar todos os inimigos e fica mais forte ou mais fraca conforme foi curada.",
+      "passive": "No final do turno, cause 20 de dano em mim mesma.",
+      "abilities": [
+        {
+          "speed": 0,
+          "cooldown": 0,
+          "text": "Cause 18 de dano em todos os inimigos. Se eu fui curada no turno passado, cause 10 de dano a menos.",
+          "effects": [
+            {
+              "type": "leticiaMassAttack"
+            }
+          ]
+        },
+        {
+          "speed": 0,
+          "cooldown": 0,
+          "text": "Cause 15 de dano em em um inimigo. Se eu fui curada no turno passado, cause 10 de dano a mais.",
+          "effects": [
+            {
+              "type": "leticiaSingleAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lou",
+      "name": "Lou, Fashion Fatal",
+      "life": 70,
+      "role": "atacante",
+      "deckDescription": "Veste os inimigos com itens incômodos e transforma cada peça em uma forma diferente de controle.",
+      "passive": "Quando eu for jogada, coloque um Boné Feio ou uma Jeans Cafona em cada um dos inimigos.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em um inimigo e 6 em outro. Se eles estiverem usando um Boné Feio, eles não podem ser curados até o próximo turno",
+          "effects": [
+            {
+              "type": "louAttackHat",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em um inimigo e 6 em outro. Se eles estiverem usando uma Jeans Cafona, coloque a Habilidades deles em Recarga 1.",
+          "effects": [
+            {
+              "type": "louAttackJeans",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sirius",
+      "name": "Sirius, Escritor do Próprio Futuro",
+      "life": 77,
+      "role": "atacante",
+      "deckDescription": "Duplica uma habilidade futura, troca de posição com o Defensor e fortalece os Heróis.",
+      "abilities": [
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Na próxima vez que eu utilizar uma outra habilidade, use ela uma vez a mais.",
+          "effects": [
+            {
+              "type": "siriusDoubleNext"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Me troque com o seu Defensor neste turno. Me conceda +15 de vida.",
+          "effects": [
+            {
+              "type": "siriusSwapDefender"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "As habilidades de seus Heróis causam +2 de dano neste turno. Cause 8 de dano em um inimigo.",
+          "effects": [
+            {
+              "type": "siriusHeroBoost"
+            },
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "victor_hans",
+      "name": "Victor Hans, O Último General",
+      "life": 70,
+      "role": "atacante",
+      "deckDescription": "Forma um exército de Soldados e aumenta permanentemente o dano deles.",
+      "abilities": [
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Cause 10 de dano em um inimigo. Crie um Soldado.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 10,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "createToken",
+              "tokenId": "soldado"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 8 de dano em um inimigo. Cada Soldado aliado ataca ele causando 8 de dano.",
+          "effects": [
+            {
+              "type": "victorSoldierAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Crie um Soldado. Pelo resto do jogo, Soldados aliados causam 2 de dano a mais ao atacar.",
+          "effects": [
+            {
+              "type": "createToken",
+              "tokenId": "soldado"
+            },
+            {
+              "type": "victorSoldierBuff"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "soldado",
+      "name": "Soldado",
+      "life": 12,
+      "role": "atacante",
+      "isToken": true,
+      "deckDescription": "Token criado por Victor Hans que ataca diretamente.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Cause 8 de dano.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 8,
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vitor",
+      "name": "Vitor, Salvação de Kerythnar",
+      "life": 78,
+      "role": "atacante",
+      "deckDescription": "Acumula Cristais de Sangue para aumentar dano próprio e Escudos.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 12 de dano. Ganhe um Cristal de Sangue.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 12,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "gainCounter",
+              "counter": "cristalSangue",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 3 de dano em mim e 3 de dano em um inimigo. Dobre esse dano para cada Cristal de Sangue que eu tiver.",
+          "effects": [
+            {
+              "type": "vitorBloodDamage",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Dê um escudo de 6 de vida para um aliado até o final do próximo turno. Com mais 3 de vida para cada Cristal de Sangue que eu tiver.",
+          "effects": [
+            {
+              "type": "vitorBloodShield",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "yvrel",
+      "name": "Yvrel, a Luz que se Apagou",
+      "life": 74,
+      "role": "atacante",
+      "deckDescription": "Bloqueia alvos, controla a ordem do turno e reutiliza uma habilidade em um aliado.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 13 de dano. O alvo não pode ser Alvejado por outras Habilidades neste turno.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 13,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "yvrelUntargetable",
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 10 de dano. O alvo se move por último neste turno.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 10,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "yvrelLast",
+              "target": "lastTarget"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 23 de dano. Use uma das minhas outras Habilidades em um aliado. Use uma Habilidade diferente da utilizada na última vez.",
+          "effects": [
+            {
+              "type": "yvrelCopyAbility",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bork",
+      "name": "Bork, a Lâmina Podre",
+      "life": 75,
+      "role": "atacante",
+      "deckDescription": "Seus golpes causam dano extra proporcional à vida atual do alvo e podem virar Escudo.",
+      "passive": "Quando eu causar dano em um inimigo, cause 10% da vida atual dele como dano extra.",
+      "abilities": [
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 1 de dano em um inimigo. Depois, cause 1 de dano em um inimigo.",
+          "effects": [
+            {
+              "type": "borkDoubleHit",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 7 de dano em um inimigo. Eu ganho um escudo com vida igual ao dano total causado.",
+          "effects": [
+            {
+              "type": "borkShieldHit",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l_kyriel",
+      "name": "L. Kyriel, a Primavera Vingadora",
+      "life": 68,
+      "role": "atacante",
+      "deckDescription": "Ataca quem já agiu, limita habilidades inimigas e cura aliados enquanto pune quem já foi danificado.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 12 de dano em um inimigo. Se um aliado já foi danificado neste turno, cause 6 a mais.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 12,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "kyrielBonusIfAllyDamaged"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 2,
+          "text": "No próximo turno, inimigos só podem utilizar suas habilidades mais rápidas.",
+          "effects": [
+            {
+              "type": "kyrielFastestOnly"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 1,
+          "text": "Cause 4 de dano em todos os inimigos e recupere 4 de vida de todos os aliados. Se um aliado já foi danificado neste turno, repita isso.",
+          "effects": [
+            {
+              "type": "kyrielPulse"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gus",
+      "name": "Gus, o Ganso",
+      "life": 3,
+      "role": "atacante",
+      "deckDescription": "Um ganso absurdamente resistente à morte que volta mais forte cada vez que é revivido.",
+      "passive": "Quando eu morrer, me reviva com o dobro de vida máxima e dobre o dano que eu causo. Faça isso um máximo de 4 vezes.",
+      "abilities": [
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Cause 2 de dano em um inimigo. Se ele não me atacar neste turno, reduza a vida máxima dele em 10%.",
+          "effects": [
+            {
+              "type": "dealDamage",
+              "base": 2,
+              "target": "chooseEnemy"
+            },
+            {
+              "type": "gusMaxLifeIfNotAttacked"
+            }
+          ]
+        },
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 1 de dano em todos os inimigos. Para cada vida que eu ainda tiver, repita essa habilidade.",
+          "effects": [
+            {
+              "type": "gusRepeatByLife"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deadric",
+      "name": "Deadric, a Aberração",
+      "life": 75,
+      "role": "atacante",
+      "deckDescription": "Manipula velocidades e ganha um ataque extra quando o turno acumula três habilidades na mesma velocidade.",
+      "passive": "Quando 3 Habilidades com a mesma Velocidade acontecerem em um único turno, eu uso um ataque extra.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Cause 9 de dano. Cause 3 a mais para cada aliado que tiver sido danificado neste turno.",
+          "effects": [
+            {
+              "type": "deadricAttack",
+              "base": 9,
+              "bonusPerDamagedAlly": 3
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause até X de dano. Onde X é a Velocidade Original da última Habilidade usada pelo alvo. Mude a velocidade da Habilidade para ser o dano.",
+          "effects": [
+            {
+              "type": "deadricSpeedAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gavin",
+      "name": "Gavin, Mestre Insuperável",
+      "life": 62,
+      "role": "atacante",
+      "deckDescription": "Encadeia habilidades dos aliados e transforma inimigos Lentos em oportunidades para repetir seus golpes.",
+      "passive": "Sempre que um aliado utilizar uma Habilidade logo em seguida da minha, cause 2 de dano em todos os inimigos.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Cause 4 de dano em um inimigo, cure 4 de vida de um aliado. Essa Habilidade ocorre novamente neste turno, com 8 de Velocidade, Dano e Cura.",
+          "effects": [
+            {
+              "type": "gavinDouble",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Cause 2 de dano em um inimigo, ele fica Lento 2. Quando um inimigo Lento atacar neste turno, eu uso uma cópia desta minha Habilidade.",
+          "effects": [
+            {
+              "type": "gavinSlow",
+              "target": "chooseEnemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rot",
+      "name": "Rot, Deus-Gevi",
+      "life": 79,
+      "role": "atacante",
+      "deckDescription": "Espalha Veneno entre inimigos e pode sacrificar unidades Criadas para finalizar ameaças.",
+      "passive": "Quando eu matar uma unidade Criada, Envenene um alvo. O meu Veneno pode ser acumulado.",
+      "abilities": [
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 15 de dano em um inimigo. Para cada Acúmulo de Veneno no alvo cause 3 de dano em todos os outros inimigos.",
+          "effects": [
+            {
+              "type": "rotPoisonAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 9,
+          "cooldown": 0,
+          "text": "Mate uma unidade Criada aliada ou cause 10 em uma unidade Criada inimiga.",
+          "effects": [
+            {
+              "type": "rotCreatedChoice"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "andressa",
+      "name": "Andressa, Pequena Escudeira",
+      "life": 50,
+      "role": "suporte",
+      "deckDescription": "Protege um parceiro, transforma dano recebido em cura e converte cura em Vida Máxima enquanto estiver protegida.",
+      "passive": "Quando eu for Jogada, um aliado se torna meu Parceiro, sempre que eu for danificada, metade do dano vira cura para ele.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Recupere 5 de vida de um aliado e o conceda um escudo de 5 de vida. Se o aliado for o meu parceiro, faça o mesmo em mim.",
+          "effects": [
+            {
+              "type": "andressaHealShield",
+              "target": "chooseAlly"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 3,
+          "text": "Conceda um escudo de 10 de vida para mim. Enquanto eu tiver um escudo, cura aliada se transforma em vida máxima para o alvo.",
+          "effects": [
+            {
+              "type": "andressaGuard"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "donna",
+      "name": "Donna, Viúva da Praga",
+      "life": 69,
+      "role": "suporte",
+      "deckDescription": "Espalha Contadores da Praga que causam dano no fim dos turnos e pode trocar parte da Praga por Vida para seus aliados.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Coloque 5 Contadores da Praga em um inimigo. No final de cada turno, inimigos recebem dano igual a quantidade de Contadores da Praga neles.",
+          "effects": [
+            {
+              "type": "donnaPlague",
+              "target": "chooseEnemy",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Coloque 2 Contadores da Praga em todos os inimigos.",
+          "effects": [
+            {
+              "type": "donnaPlagueAll",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Remova 3 Contadores da Praga de um alvo. Conceda +10 de vida para os seus aliados.",
+          "effects": [
+            {
+              "type": "donnaCleanPlague",
+              "target": "chooseUnit"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neon",
+      "name": "NEON",
+      "life": 60,
+      "role": "suporte",
+      "deckDescription": "Acelera aliados e cria pressão contínua sempre que eles atacam.",
+      "abilities": [
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Cure 4 de vida de todos os aliados. Acelere em 3 as habilidades deles neste turno.",
+          "effects": [
+            {
+              "type": "neonHealHaste"
+            }
+          ]
+        },
+        {
+          "speed": 2,
+          "cooldown": 0,
+          "text": "Até o próximo turno, sempre que um aliado atacar um inimigo, cause 2 de dano no alvo.",
+          "effects": [
+            {
+              "type": "neonAttackEcho"
+            }
+          ]
+        },
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Nos próximos 2 turnos, no final do turno, aliados atacam um inimigo causando 2 de dano cada.",
+          "effects": [
+            {
+              "type": "neonEndTurnAttacks"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vanessa",
+      "name": "Vanessa, Diversão sem Limites",
+      "life": 65,
+      "role": "suporte",
+      "deckDescription": "Recompensa o primeiro inimigo que a danifica e pode provocar o Atacante enquanto cura sua equipe.",
+      "passive": "A primeira unidade que me danificar todo turno, ganha um escudo de 10 de vida por 2 turnos.",
+      "abilities": [
+        {
+          "speed": 4,
+          "cooldown": 0,
+          "text": "Um aliado me ataca causando 3 de dano, depois ataca cada inimigo causando 6 de dano.",
+          "effects": [
+            {
+              "type": "vanessaAllyAttack"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 1,
+          "text": "Eu provoco o Atacante inimigo. Sempre que eu for danificada neste turno, cure 4 de vida de todos os meus aliados.",
+          "effects": [
+            {
+              "type": "vanessaTaunt"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "romulo",
+      "name": "Rômulo, Preletor Experiente",
+      "life": 67,
+      "role": "suporte",
+      "deckDescription": "Coordena ataques da equipe, fortalece o próximo golpe dos aliados e recupera vida de quem sofreu dano.",
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 0,
+          "text": "Eu, o Atacante e o Defensor aliado atacamos um único inimigo, cada ataque causa 3 de dano.",
+          "effects": [
+            {
+              "type": "romuloTripleAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 3 de dano em cada aliado. O próximo ataque de cada um deles causa 3 de dano a mais em cada alvo.",
+          "effects": [
+            {
+              "type": "romuloBuffAttack"
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Recupere 6 de vida de cada aliado. Recupere 6 de vida adicional em alvos que foram danificados no turno anterior.",
+          "effects": [
+            {
+              "type": "romuloHeal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dario",
+      "name": "Dário, o Senador e a Sombra",
+      "life": 66,
+      "role": "suporte",
+      "deckDescription": "Muda de forma conforme é curado ou danificado, alternando entre suporte defensivo e ofensivo.",
+      "passive": "Quando um aliado me curar, eu me torno o Senador. Quando um aliado me danificar, eu me torno a Sombra.",
+      "abilities": [
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 7 de dano em um inimigo. Se eu for o Senador, cure 7 de vida de um alvo. Se eu for a Sombra, cause 7 de dano a mais.",
+          "effects": [
+            {
+              "type": "darioAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Conceda 5 de Escudo para um aliado. Se eu for o Senador, dobre o Escudo que ele tem. Se eu for a Sombra, roube o Escudo de um inimigo.",
+          "effects": [
+            {
+              "type": "darioShield",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zeev",
+      "name": "Ze'ev, Praga e Perigo",
+      "life": 64,
+      "role": "suporte",
+      "deckDescription": "Usa Decaimento como cura para aliados e manipula sua duração.",
+      "passive": "Decaimento que eu coloco em aliados cura ao invés de Danificar.",
+      "abilities": [
+        {
+          "speed": 3,
+          "cooldown": 0,
+          "text": "Conceda 8 de Escudo e coloque 4 de Decaimento em um alvo.",
+          "effects": [
+            {
+              "type": "zeevDecayShield",
+              "target": "chooseUnit"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 0,
+          "text": "Acelere o Decaimento de um alvo em 2.",
+          "effects": [
+            {
+              "type": "zeevAccelerateDecay",
+              "target": "chooseUnit"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brenda",
+      "name": "Brenda, Mecânica de Combate",
+      "life": 68,
+      "role": "suporte",
+      "deckDescription": "Protege a equipe e impede criação de unidades, ficando cada vez mais forte quando Escudos são quebrados.",
+      "abilities": [
+        {
+          "speed": 2,
+          "cooldown": 2,
+          "text": "Unidades não podem ser criadas neste turno. Conceda 7 de Escudo a todos os seus aliados.",
+          "effects": [
+            {
+              "type": "brendaNoCreate"
+            },
+            {
+              "type": "brendaTeamShield"
+            }
+          ]
+        },
+        {
+          "speed": 7,
+          "cooldown": 0,
+          "text": "Cause 1 de dano em um inimigo. Sempre que um Escudo aliado for danificado, melhore essa Habilidade em 1 Permanentemente.",
+          "effects": [
+            {
+              "type": "brendaAttack",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 1,
+          "cooldown": 0,
+          "text": "Conceda 15 de escudo para um aliado neste turno. Cause 5 de dano em um aliado.",
+          "effects": [
+            {
+              "type": "brendaShieldDamage",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jairo",
+      "name": "Jairo, o Glorioso Pacifista",
+      "life": 58,
+      "role": "suporte",
+      "deckDescription": "Cria uma janela de paz sem dano, reduz Vida Máxima e cura aliados conforme inimigos permanecem intocados.",
+      "abilities": [
+        {
+          "speed": 6,
+          "cooldown": 2,
+          "text": "No Próximo turno, nenhuma unidade pode ser danificada. Recupere 5 de vida dos seus aliados.",
+          "effects": [
+            {
+              "type": "jairoPeace"
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Um inimigo perde 8 de vida máxima.",
+          "effects": [
+            {
+              "type": "jairoMaxLife",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 8,
+          "cooldown": 0,
+          "text": "Para cada inimigo que ainda não foi danificado neste turno, recupere 6 de vida de um aliado.",
+          "effects": [
+            {
+              "type": "jairoUntouchedHeal",
+              "target": "chooseAlly"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "barao_chemio",
+      "name": "Barão Químio III",
+      "life": 65,
+      "role": "suporte",
+      "deckDescription": "Manipula uma Toxina que pode ser melhorada ao passar o turno e usada repetidamente.",
+      "passive": "Eu posso passar o meu turno; se eu fizer isso, melhore o efeito do próximo uso da minha Toxina para Doze.",
+      "abilities": [
+        {
+          "speed": 0,
+          "cooldown": 0,
+          "text": "Aplique a minha Toxina em um alvo neste turno. Se a Toxina não estiver melhorada, aplique-a em quantos alvos quiser.",
+          "effects": [
+            {
+              "type": "baraoToxina",
+              "target": "chooseEnemy"
+            }
+          ]
+        },
+        {
+          "speed": 5,
+          "cooldown": 3,
+          "text": "Use a Toxina melhorada em mim. Eu perco 0 de vida máxima e causo 0 de dano em um inimigo no final do turno. [Desativável mesmo em recarga]",
+          "effects": [
+            {
+              "type": "baraoImprovedToxina"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
