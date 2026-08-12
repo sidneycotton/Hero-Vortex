@@ -1,6 +1,6 @@
 /* Hero Vortex synthesized audio: menu/arena music + UI SFX. */
 (() => {
-let ctx=null,master=null,enabled=true,musicEnabled=true,musicTimer=null,musicGain=null,musicMode='menu',lastMotionAt=0,lastImpactAt=0;
+let ctx=null,master=null,enabled=true,musicEnabled=true,musicTimer=null,musicGain=null,musicMode='menu';
 function icon(on){return on?`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3.5l4.5 4V6l-4.5 4H4Z"/><path d="M15 9.5c1.7 1.7 1.7 3.3 0 5"/><path d="M17.8 7.2c3 3 3 6.6 0 9.6"/></svg>`:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3.5l4.5 4V6l-4.5 4H4Z"/><path d="m16 10 5 5"/><path d="m21 10-5 5"/></svg>`}
 function ensure(){if(!enabled)return null;if(!ctx){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;ctx=new A();master=ctx.createGain();master.gain.value=.055;master.connect(ctx.destination)}if(ctx.state==='suspended')ctx.resume().catch(()=>{});return ctx}
 function tone({freq=440,endFreq=freq,duration=.08,type='sine',volume=.4,delay=0,target=null}){const a=ensure();if(!a)return;const n=a.currentTime+delay,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(freq,n);o.frequency.exponentialRampToValueAtTime(Math.max(35,endFreq),n+duration);g.gain.setValueAtTime(.0001,n);g.gain.exponentialRampToValueAtTime(Math.max(.0001,volume),n+.008);g.gain.exponentialRampToValueAtTime(.0001,n+duration);o.connect(g);g.connect(target||master);o.start(n);o.stop(n+duration+.015)}
@@ -14,7 +14,12 @@ window.HVAudio={play:n=>sounds[n]?.(),toggle:v=>{enabled=v!==undefined?!!v:!enab
 const gesture=()=>{ensure();if(musicEnabled&&!musicTimer)startMusic(musicMode);installToggle()};['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,gesture,{passive:true}));
 installToggle();
 document.addEventListener('click',e=>{if(e.target.closest('.hv-deck-card,.hv-target-option,.hv-initial-choice,.ability-btn,.class-choice,.deck-class-tab,button'))sounds.tap()},true);
-const observer=new MutationObserver(ms=>{for(const m of ms){if(m.type==='childList')m.addedNodes.forEach(n=>{if(!(n instanceof Element))return;if(n.matches('.hv-motion-card')||n.querySelector('.hv-motion-card')){const now=performance.now();if(now-lastMotionAt>90){lastMotionAt=now;sounds.attack()}}});if(m.type==='attributes'){const e=m.target;if(!(e instanceof Element))continue;const c=e.classList;if(c.contains('hv-hit-reaction')){const now=performance.now();if(now-lastImpactAt>90){lastImpactAt=now;sounds.impact()}}if(c.contains('hv-target-marked'))sounds.target();if(c.contains('hv-defeated')||c.contains('hv-death-reaction'))sounds.defeat()}}});observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+// Combat FX/SFX (damage, heal, shield, defeat, etc.) are triggered directly
+// by js/systems/combat-presentation.js, which knows the actual game event.
+// This observer only covers the pre-resolution "target marked" cue, which
+// render.js still applies as a plain class toggle with no JS callback site.
+const observer=new MutationObserver(ms=>{for(const m of ms){if(m.type==='attributes'){const e=m.target;if(!(e instanceof Element))continue;if(e.classList.contains('hv-target-marked'))sounds.target()}}});
+observer.observe(document.body,{subtree:true,childList:false,attributes:true,attributeFilter:['class']});
 })();
 
 /* Consolidated audio routing: switches the synthesized soundtrack with the active screen. */
