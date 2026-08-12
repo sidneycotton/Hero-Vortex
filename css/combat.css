@@ -1,45 +1,78 @@
-/* Hero Vortex — slow, readable combat choreography. */
+/* Hero Vortex — fast, physical combat choreography.
+   No floating SVG glyphs, no long travel animations. Impact reads through
+   shake, inset flash, terse floating numbers, and a short ember burst. */
+
 .hv-battle-screen .hv-cast-banner{display:none!important}
-.hv-action-cue{position:absolute;left:50%;top:42%;z-index:100;display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%) scale(.78);padding:8px 12px;border:1px solid rgba(244,221,161,.35);border-radius:999px;background:rgba(8,10,15,.9);box-shadow:0 12px 32px rgba(0,0,0,.45),0 0 25px rgba(217,184,108,.12);backdrop-filter:blur(12px);font:800 .6rem var(--font-accent);letter-spacing:.14em;color:#f4dda1;pointer-events:none;animation:hvCue .9s cubic-bezier(.2,.85,.2,1) both}.hv-action-cue span{display:grid;place-items:center;width:20px;height:20px}.hv-action-cue .hv-svg-icon{width:18px;height:18px}.hv-action-damage{box-shadow:0 12px 32px rgba(0,0,0,.45),0 0 25px rgba(255,92,100,.16)}.hv-action-heal{color:#bdf2d3;border-color:rgba(112,215,160,.32)}.hv-action-shield{color:#c8e0ff;border-color:rgba(109,167,255,.32)}.hv-action-status{color:#e5cbff;border-color:rgba(185,120,255,.28)}
-@keyframes hvCue{0%{opacity:0;transform:translate(-50%,-44%) scale(.65)}25%{opacity:1;transform:translate(-50%,-54%) scale(1.05)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.98)}}
-.hv-combat-card-ghost{position:fixed!important;z-index:100050!important;pointer-events:none!important;border-radius:20px;overflow:hidden;box-shadow:0 28px 75px rgba(0,0,0,.62),0 0 45px rgba(217,184,108,.08);transform-origin:center center}.hv-strike-ghost{filter:saturate(1.12) brightness(1.08)}.hv-sacrifice-ghost{filter:grayscale(.35) brightness(.82)}
-.hv-combat-glyph{position:fixed;z-index:100060;pointer-events:none;width:54px;height:54px;display:grid;place-items:center;transform:translate(-50%,-50%);filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));animation:hvGlyphFloat 1.55s cubic-bezier(.2,.8,.2,1) both}.hv-combat-glyph .hv-svg-icon{width:38px;height:38px;stroke-width:1.8}.hv-combat-damage{color:#ff7278}.hv-combat-heal{color:#72d7a0}.hv-combat-shield{color:#71acff}.hv-combat-status{color:#c08bff}.hv-combat-buff{color:#e1bd65}.hv-combat-summon{color:#70d9ff}.hv-combat-field{color:#8ab7ff}.hv-combat-taunt{color:#ffa45f}.hv-combat-sacrifice{color:#d56e6e}.hv-combat-revive{color:#73e7b0}.hv-combat-move{color:#b8c9e8}.hv-combat-delayed{color:#b49be8}
-@keyframes hvGlyphFloat{0%{opacity:0;transform:translate(-50%,-40%) scale(.35) rotate(-8deg)}22%{opacity:1;transform:translate(-50%,-55%) scale(1.08) rotate(3deg)}68%{opacity:1;transform:translate(-50%,-92%) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-145%) scale(.72)}}
-.hv-sword-projectile{animation:none}.hv-area-core{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(255,105,110,.22),transparent 68%);border:1px solid rgba(255,105,110,.28);animation:hvAreaCore 1.8s ease-out both}.hv-area-core .hv-svg-icon{width:52px;height:52px}.hv-impact-flare{width:70px;height:70px}.hv-impact-flare::after{content:"";position:absolute;inset:2px;border-radius:50%;border:1px solid currentColor;opacity:.35;animation:hvRing 1.15s ease-out}.hv-impact-shake{animation:hvImpactShake 1s cubic-bezier(.36,.07,.19,.97) both}.hv-heal-pulse{animation:hvHealCard 1.45s ease-out}.hv-shield-pulse{animation:hvShieldCard 1.45s ease-out}.hv-status-pulse{animation:hvStatusCard 1.2s ease-out}.hv-taunt-shake{animation:hvTauntCard .95s ease-in-out}.hv-move-pulse{animation:hvMoveCard 1.1s ease-out}.hv-summon-enter{animation:hvSummonCard 1.6s cubic-bezier(.2,.85,.2,1)}.hv-revive-enter{animation:hvReviveCard 1.8s cubic-bezier(.2,.85,.2,1)}.hv-field-wave{animation:hvFieldWave 1.9s ease-out}.hv-shield-dome{width:84px;height:84px;border-radius:50%;background:radial-gradient(circle,rgba(109,167,255,.18),transparent 65%);border:1px solid rgba(109,167,255,.4);animation:hvDome 1.55s ease-out}.hv-status-rune{width:68px;height:68px}.hv-summon-burst{width:86px;height:86px;border-radius:50%;background:radial-gradient(circle,rgba(112,217,255,.2),transparent 70%);border:1px solid rgba(112,217,255,.35)}.hv-sacrifice-burst{width:78px;height:78px;background:radial-gradient(circle,rgba(213,110,110,.22),transparent 70%);border-radius:50%}.hv-sacrifice-core{width:62px;height:62px}.hv-revive-rune{width:88px;height:88px;border-radius:50%;border:1px solid rgba(115,231,176,.38);background:radial-gradient(circle,rgba(115,231,176,.18),transparent 68%)}.hv-field-weather{width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(122,168,255,.16),transparent 65%);border:1px solid rgba(122,168,255,.28);animation:hvWeather 2s ease-out}.hv-taunt-mark{width:72px;height:72px}.hv-move-arrow{width:68px;height:68px}.hv-delayed-rune{width:72px;height:72px}
-@keyframes hvImpactShake{0%,100%{transform:translate3d(0,0,0)}15%{transform:translate3d(-9px,2px,0) rotate(-1deg)}30%{transform:translate3d(10px,-2px,0) rotate(1deg)}45%{transform:translate3d(-7px,1px,0)}60%{transform:translate3d(6px,0,0)}75%{transform:translate3d(-3px,0,0)}90%{transform:translate3d(1px,0,0)}}
-@keyframes hvAreaCore{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.55)}}@keyframes hvRing{0%{transform:scale(.35);opacity:.8}100%{transform:scale(1.65);opacity:0}}@keyframes hvHealCard{0%{box-shadow:0 0 0 rgba(114,215,160,0)}35%{box-shadow:0 0 0 7px rgba(114,215,160,.16),0 0 34px rgba(114,215,160,.32)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}@keyframes hvShieldCard{0%{box-shadow:inset 0 0 0 rgba(113,172,255,0),0 0 0 rgba(113,172,255,0)}45%{box-shadow:inset 0 0 36px rgba(113,172,255,.2),0 0 32px rgba(113,172,255,.4)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}@keyframes hvStatusCard{0%,100%{filter:none}35%{filter:saturate(1.4) brightness(1.14)}60%{transform:translateX(-4px)}75%{transform:translateX(4px)}}@keyframes hvTauntCard{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}@keyframes hvMoveCard{35%{transform:translateY(-6px)}70%{transform:translateY(3px)}}@keyframes hvSummonCard{0%{opacity:.35;transform:translateY(20px) scale(.78)}55%{opacity:1;transform:translateY(-4px) scale(1.05)}100%{opacity:1;transform:none}}@keyframes hvReviveCard{0%{opacity:.2;transform:translateY(18px) scale(.88)}55%{opacity:1;transform:translateY(-5px) scale(1.05)}100%{opacity:1;transform:none}}@keyframes hvFieldWave{0%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}40%{box-shadow:inset 0 0 80px rgba(122,168,255,.12)}100%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}}@keyframes hvDome{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.45)}}@keyframes hvWeather{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.65)}}
-@media(max-width:720px){.hv-action-cue{top:38%;padding:7px 10px;font-size:.54rem}.hv-combat-card-ghost{border-radius:16px}.hv-combat-glyph{width:46px;height:46px}.hv-combat-glyph .hv-svg-icon{width:32px;height:32px}.hv-area-core{width:72px;height:72px}.hv-field-weather{width:120px;height:120px}}
 
-/* ---- Screen shake on the battle stage ---- */
-.hv-battle-stage{--hv-shake-mag:6px}
-.hv-stage-shake{animation:hvStageShake .42s cubic-bezier(.36,.07,.19,.97) both}
-@keyframes hvStageShake{0%,100%{transform:translate3d(0,0,0)}12%{transform:translate3d(calc(var(--hv-shake-mag) * -1),calc(var(--hv-shake-mag) * .3),0)}28%{transform:translate3d(var(--hv-shake-mag),calc(var(--hv-shake-mag) * -.25),0)}44%{transform:translate3d(calc(var(--hv-shake-mag) * -.7),calc(var(--hv-shake-mag) * .18),0)}60%{transform:translate3d(calc(var(--hv-shake-mag) * .5),0,0)}76%{transform:translate3d(calc(var(--hv-shake-mag) * -.25),0,0)}90%{transform:translate3d(calc(var(--hv-shake-mag) * .1),0,0)}}
+/* ---- terse action cue: text only, quick in-out, no icon ---- */
+.hv-action-cue{position:absolute;left:50%;top:8px;z-index:100;transform:translate(-50%,0) scale(.85);padding:4px 10px;border:1px solid rgba(244,221,161,.3);border-radius:5px;background:rgba(8,10,15,.92);font:800 .56rem var(--font-accent);letter-spacing:.14em;color:#f4dda1;pointer-events:none;animation:hvCue .28s ease both}
+.hv-action-damage{border-color:rgba(255,92,100,.4);color:#ffb3b6}
+.hv-action-heal{color:#bdf2d3;border-color:rgba(112,215,160,.32)}
+.hv-action-shield{color:#c8e0ff;border-color:rgba(109,167,255,.32)}
+.hv-action-status{color:#e5cbff;border-color:rgba(185,120,255,.28)}
+@keyframes hvCue{0%{opacity:0;transform:translate(-50%,-4px) scale(.8)}30%{opacity:1;transform:translate(-50%,0) scale(1)}75%{opacity:1}100%{opacity:0}}
 
-/* ---- Floating combat numbers (fixed positioned, lives in the FX layer) ---- */
-.hv-float-number{position:fixed;transform:translate(-50%,-50%);font:900 1.35rem var(--font-accent);letter-spacing:.02em;white-space:nowrap;pointer-events:none;z-index:100065;text-shadow:0 3px 10px rgba(0,0,0,.65),0 0 18px currentColor;animation:hvFloatNumber 1.4s cubic-bezier(.16,.8,.2,1) both}
-.hv-float-damage{color:#ff6b70}
-.hv-float-heal{color:#7bedaa}
-.hv-float-shield{color:#7fb4ff}
-@keyframes hvFloatNumber{0%{opacity:0;transform:translate(-50%,-40%) scale(.4) rotate(-4deg)}14%{opacity:1;transform:translate(-50%,-72%) scale(1.28) rotate(2deg)}30%{transform:translate(-50%,-64%) scale(1) rotate(0)}78%{opacity:1;transform:translate(-50%,-118%) scale(1)}100%{opacity:0;transform:translate(-50%,-148%) scale(.85)}}
+/* ---- screen shake on the battle stage: short, sharp, sober ---- */
+.hv-shake-mild{animation:hvShakeMild .3s ease}
+.hv-shake-hard{animation:hvShakeHard .35s ease}
+@keyframes hvShakeMild{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+@keyframes hvShakeHard{0%,100%{transform:translate(0,0)}15%{transform:translate(-7px,1px)}30%{transform:translate(7px,-1px)}45%{transform:translate(-5px,0)}60%{transform:translate(5px,0)}80%{transform:translate(-2px,0)}}
 
-/* ---- Ambient particles from impacts ---- */
-.hv-particle{position:fixed;border-radius:50%;pointer-events:none;z-index:100055;transform:translate(-50%,-50%)}
-.hv-particle-damage{background:radial-gradient(circle,#ffb2a8,#ff5b5f 65%,transparent);box-shadow:0 0 8px rgba(255,90,95,.7)}
-.hv-particle-heal{background:radial-gradient(circle,#c9ffe2,#67d99a 65%,transparent);box-shadow:0 0 8px rgba(103,217,154,.7)}
-.hv-particle-buff{background:radial-gradient(circle,#fff0c2,#e1bd65 65%,transparent);box-shadow:0 0 8px rgba(225,189,101,.65)}
-.hv-particle-shield{background:radial-gradient(circle,#cfe3ff,#6da7ff 65%,transparent);box-shadow:0 0 8px rgba(109,167,255,.65)}
-.hv-particle-status{background:radial-gradient(circle,#ecd7ff,#b978ff 65%,transparent);box-shadow:0 0 8px rgba(185,120,255,.6)}
-.hv-particle-summon{background:radial-gradient(circle,#c8f3ff,#70d9ff 65%,transparent);box-shadow:0 0 8px rgba(112,217,255,.65)}
-.hv-particle-sacrifice{background:radial-gradient(circle,#f0c2c2,#d56e6e 65%,transparent);box-shadow:0 0 8px rgba(213,110,110,.6)}
-.hv-particle-revive{background:radial-gradient(circle,#c9ffe6,#73e7b0 65%,transparent);box-shadow:0 0 8px rgba(115,231,176,.65)}
-.hv-particle-taunt{background:radial-gradient(circle,#ffe0c2,#ffa45f 65%,transparent);box-shadow:0 0 8px rgba(255,164,95,.6)}
+/* ---- terse impact jolt on the struck card ---- */
+.hv-jolt{animation:hvJolt .25s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes hvJolt{0%{transform:translateX(0)}20%{transform:translateX(-4px) rotate(-.6deg)}45%{transform:translateX(4px) rotate(.6deg)}70%{transform:translateX(-2px)}100%{transform:translateX(0)}}
 
-/* ---- Trailing sparks behind moving glyphs ---- */
-.hv-trail-spark{position:fixed;width:10px;height:10px;border-radius:50%;pointer-events:none;z-index:100052;transform:translate(-50%,-50%)}
-.hv-trail-damage{background:radial-gradient(circle,#ffdcd6,#ff7278 70%,transparent)}
-.hv-trail-heal{background:radial-gradient(circle,#dffff0,#72d7a0 70%,transparent)}
-.hv-trail-buff{background:radial-gradient(circle,#fff3d4,#e1bd65 70%,transparent)}
+/* ---- inset flash on the card itself, per effect kind — no glow bloom ---- */
+.hv-flash-damage{animation:hvFlashDamage .45s ease}
+.hv-flash-heal{animation:hvFlashHeal .45s ease}
+.hv-flash-shield{animation:hvFlashShield .45s ease}
+.hv-flash-status{animation:hvFlashStatus .45s ease}
+.hv-flash-buff{animation:hvFlashBuff .45s ease}
+.hv-flash-taunt{animation:hvFlashTaunt .45s ease}
+.hv-flash-sacrifice{animation:hvFlashSacrifice .45s ease}
+.hv-flash-move{animation:hvFlashMove .35s ease}
+.hv-flash-delayed{animation:hvFlashStatus .45s ease}
+@keyframes hvFlashDamage{0%{box-shadow:0 0 0 rgba(196,67,47,0)}35%{box-shadow:0 0 0 2px rgba(255,92,100,.85) inset,0 0 14px rgba(255,92,100,.4)}100%{box-shadow:0 0 0 rgba(196,67,47,0)}}
+@keyframes hvFlashHeal{0%{box-shadow:0 0 0 rgba(127,201,127,0)}35%{box-shadow:0 0 0 2px rgba(114,215,160,.8) inset,0 0 14px rgba(114,215,160,.35)}100%{box-shadow:0 0 0 rgba(127,201,127,0)}}
+@keyframes hvFlashShield{0%{box-shadow:0 0 0 rgba(109,167,255,0)}35%{box-shadow:0 0 0 2px rgba(109,167,255,.8) inset,0 0 14px rgba(109,167,255,.35)}100%{box-shadow:0 0 0 rgba(109,167,255,0)}}
+@keyframes hvFlashStatus{0%{box-shadow:0 0 0 rgba(155,111,191,0)}35%{box-shadow:0 0 0 2px rgba(185,120,255,.75) inset,0 0 14px rgba(185,120,255,.32)}100%{box-shadow:0 0 0 rgba(155,111,191,0)}}
+@keyframes hvFlashBuff{0%{box-shadow:0 0 0 rgba(225,189,101,0)}35%{box-shadow:0 0 0 2px rgba(225,189,101,.8) inset,0 0 14px rgba(225,189,101,.35)}100%{box-shadow:0 0 0 rgba(225,189,101,0)}}
+@keyframes hvFlashTaunt{0%{box-shadow:0 0 0 rgba(255,164,95,0)}35%{box-shadow:0 0 0 2px rgba(255,164,95,.75) inset,0 0 14px rgba(255,164,95,.3)}100%{box-shadow:0 0 0 rgba(255,164,95,0)}}
+@keyframes hvFlashSacrifice{0%{box-shadow:0 0 0 rgba(213,110,110,0)}35%{box-shadow:0 0 0 2px rgba(213,110,110,.75) inset,0 0 14px rgba(213,110,110,.32)}100%{box-shadow:0 0 0 rgba(213,110,110,0)}}
+@keyframes hvFlashMove{0%,100%{box-shadow:0 0 0 rgba(200,210,230,0)}50%{box-shadow:0 0 0 1px rgba(200,210,230,.5) inset}}
 
-/* ---- Buff pulse (mirrors heal-card pulse with gold tone) ---- */
-.hv-buff-pulse{animation:hvBuffCard 1.45s ease-out}
-@keyframes hvBuffCard{0%{box-shadow:0 0 0 rgba(225,189,101,0)}35%{box-shadow:0 0 0 7px rgba(225,189,101,.16),0 0 34px rgba(225,189,101,.32)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}
+/* ---- taunt: quick horizontal shake on the card itself ---- */
+.hv-taunt-shake{animation:hvTauntShake .45s ease-in-out}
+@keyframes hvTauntShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+/* ---- summon / revive: a card settling into place, not floating in ---- */
+.hv-summon-enter{animation:hvSummonEnter .35s cubic-bezier(.2,.85,.2,1)}
+.hv-revive-enter{animation:hvSummonEnter .4s cubic-bezier(.2,.85,.2,1)}
+@keyframes hvSummonEnter{0%{opacity:.3;transform:scale(.9)}60%{opacity:1;transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+
+/* ---- field effect: a brief inward pulse across the whole stage ---- */
+.hv-field-wave{animation:hvFieldWave .7s ease-out}
+@keyframes hvFieldWave{0%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}40%{box-shadow:inset 0 0 60px rgba(122,168,255,.12)}100%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}}
+
+/* ---- terse floating text: dark chip, no neon glow, matches Perdigon's float-text ---- */
+.hv-float-layer{position:absolute;inset:0;overflow:visible;pointer-events:none;z-index:20}
+.hv-float-text{position:absolute;top:-4px;left:50%;transform:translateX(-50%);font:700 .68rem var(--font-accent);letter-spacing:.02em;white-space:nowrap;color:#f2ede1;background:rgba(10,8,6,.9);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px;pointer-events:none;z-index:30;animation:hvFloatText .9s ease forwards}
+.hv-float-damage{color:#ff9498;border-color:rgba(255,92,100,.3)}
+.hv-float-heal{color:#8fe6ac;border-color:rgba(114,215,160,.28)}
+.hv-float-shield{color:#9dc4ff;border-color:rgba(109,167,255,.28)}
+.hv-float-shield-gain{color:#9dc4ff;border-color:rgba(109,167,255,.28)}
+@keyframes hvFloatText{0%{opacity:0;transform:translate(-50%,4px) scale(.8)}20%{opacity:1;transform:translate(-50%,-4px) scale(1.05)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+
+/* ---- ember burst: short-lived radial sparks, matches Perdigon's death-burst ---- */
+.hv-ember{position:fixed;top:0;left:0;width:4px;height:4px;border-radius:50%;pointer-events:none;z-index:100060;transform:translate(-50%,-50%);animation:hvEmber .55s cubic-bezier(.2,.7,.4,1) forwards}
+.hv-ember-damage{background:#ff5a3c;box-shadow:0 0 5px 1px rgba(255,90,60,.8)}
+.hv-ember-heal{background:#72d7a0;box-shadow:0 0 5px 1px rgba(114,215,160,.75)}
+.hv-ember-buff{background:#e1bd65;box-shadow:0 0 5px 1px rgba(225,189,101,.75)}
+.hv-ember-shield{background:#6da7ff;box-shadow:0 0 5px 1px rgba(109,167,255,.75)}
+.hv-ember-status{background:#b978ff;box-shadow:0 0 5px 1px rgba(185,120,255,.7)}
+.hv-ember-summon{background:#70d9ff;box-shadow:0 0 5px 1px rgba(112,217,255,.75)}
+.hv-ember-sacrifice{background:#d56e6e;box-shadow:0 0 5px 1px rgba(213,110,110,.7)}
+.hv-ember-revive{background:#73e7b0;box-shadow:0 0 5px 1px rgba(115,231,176,.75)}
+@keyframes hvEmber{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--ang)) translateX(0) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--ang)) translateX(var(--dist)) scale(.3)}}
+
+@media(max-width:720px){.hv-action-cue{font-size:.52rem;padding:3px 8px}.hv-float-text{font-size:.62rem}}
