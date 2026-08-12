@@ -1,0 +1,18 @@
+/* Hero Vortex — ambient effects layer: floating embers, ripple host, tilt support. */
+#hv-ember-field{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.hv-ember-particle{position:absolute;bottom:-10px;border-radius:50%;opacity:0;background:radial-gradient(circle,rgba(244,205,120,.9),rgba(244,205,120,0) 70%);animation:hvEmberRise linear infinite}
+@keyframes hvEmberRise{
+  0%{opacity:0;transform:translate(0,0) scale(.6)}
+  8%{opacity:.85}
+  92%{opacity:.5}
+  100%{opacity:0;transform:translate(var(--drift,20px),-112vh) scale(1)}
+}
+
+/* tilt-ready cards get a subtle perspective host */
+.hv-deck-card,.hv-battle-stage .unit-card,.hv-declare-card-wrap .unit-card{will-change:transform}
+
+/* ripple host requirement */
+.btn-primary,.btn-secondary,.hv-select-detail,.hv-deck-card,.hv-role-tab,.hv-initial-card{position:relative;overflow:hidden}
+
+@media(prefers-reduced-motion:reduce){#hv-ember-field{display:none}}
+@media(max-width:600px){#hv-ember-field .hv-ember-particle:nth-child(n+9){display:none}}
