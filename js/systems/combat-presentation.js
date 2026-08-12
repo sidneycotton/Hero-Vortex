@@ -35,6 +35,12 @@
     setTimeout(()=>e.classList.remove('hv-jolt'),250);
   }
 
+  // ---- a card falling: settles low, desaturates, stays down (no fade-out — the card stays on board as "Derrotado") ----
+  function markDefeated(uid){
+    const e=el(uid);if(!e)return;
+    e.classList.add('hv-defeated');
+  }
+
   // ---- small, dark, terse floating number — no neon glow ----
   function floatNumber(uid,text,kind='damage'){
     const e=el(uid);if(!e)return;
@@ -172,6 +178,11 @@
       await actionCue(caster.uid,kindOf(ability.effects?.[0]));
       await wait(PRE_ACTION_MS);
       for(const effect of ability.effects||[]){await animateEffect(effect,diff);await wait(STEP_MS)}
+      if(diff.newlyDead?.length){
+        window.HVAudio?.play('defeat');
+        diff.newlyDead.forEach((uid,i)=>setTimeout(()=>markDefeated(uid),i*90));
+        await wait(220);
+      }
       await wait(GAP_MS);
     })();
     window.HVCombatBusy=true;
