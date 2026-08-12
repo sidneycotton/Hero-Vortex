@@ -9,3 +9,37 @@
 @keyframes hvImpactShake{0%,100%{transform:translate3d(0,0,0)}15%{transform:translate3d(-9px,2px,0) rotate(-1deg)}30%{transform:translate3d(10px,-2px,0) rotate(1deg)}45%{transform:translate3d(-7px,1px,0)}60%{transform:translate3d(6px,0,0)}75%{transform:translate3d(-3px,0,0)}90%{transform:translate3d(1px,0,0)}}
 @keyframes hvAreaCore{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.55)}}@keyframes hvRing{0%{transform:scale(.35);opacity:.8}100%{transform:scale(1.65);opacity:0}}@keyframes hvHealCard{0%{box-shadow:0 0 0 rgba(114,215,160,0)}35%{box-shadow:0 0 0 7px rgba(114,215,160,.16),0 0 34px rgba(114,215,160,.32)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}@keyframes hvShieldCard{0%{box-shadow:inset 0 0 0 rgba(113,172,255,0),0 0 0 rgba(113,172,255,0)}45%{box-shadow:inset 0 0 36px rgba(113,172,255,.2),0 0 32px rgba(113,172,255,.4)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}@keyframes hvStatusCard{0%,100%{filter:none}35%{filter:saturate(1.4) brightness(1.14)}60%{transform:translateX(-4px)}75%{transform:translateX(4px)}}@keyframes hvTauntCard{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}@keyframes hvMoveCard{35%{transform:translateY(-6px)}70%{transform:translateY(3px)}}@keyframes hvSummonCard{0%{opacity:.35;transform:translateY(20px) scale(.78)}55%{opacity:1;transform:translateY(-4px) scale(1.05)}100%{opacity:1;transform:none}}@keyframes hvReviveCard{0%{opacity:.2;transform:translateY(18px) scale(.88)}55%{opacity:1;transform:translateY(-5px) scale(1.05)}100%{opacity:1;transform:none}}@keyframes hvFieldWave{0%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}40%{box-shadow:inset 0 0 80px rgba(122,168,255,.12)}100%{box-shadow:inset 0 0 0 rgba(122,168,255,0)}}@keyframes hvDome{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.45)}}@keyframes hvWeather{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}35%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.65)}}
 @media(max-width:720px){.hv-action-cue{top:38%;padding:7px 10px;font-size:.54rem}.hv-combat-card-ghost{border-radius:16px}.hv-combat-glyph{width:46px;height:46px}.hv-combat-glyph .hv-svg-icon{width:32px;height:32px}.hv-area-core{width:72px;height:72px}.hv-field-weather{width:120px;height:120px}}
+
+/* ---- Screen shake on the battle stage ---- */
+.hv-battle-stage{--hv-shake-mag:6px}
+.hv-stage-shake{animation:hvStageShake .42s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes hvStageShake{0%,100%{transform:translate3d(0,0,0)}12%{transform:translate3d(calc(var(--hv-shake-mag) * -1),calc(var(--hv-shake-mag) * .3),0)}28%{transform:translate3d(var(--hv-shake-mag),calc(var(--hv-shake-mag) * -.25),0)}44%{transform:translate3d(calc(var(--hv-shake-mag) * -.7),calc(var(--hv-shake-mag) * .18),0)}60%{transform:translate3d(calc(var(--hv-shake-mag) * .5),0,0)}76%{transform:translate3d(calc(var(--hv-shake-mag) * -.25),0,0)}90%{transform:translate3d(calc(var(--hv-shake-mag) * .1),0,0)}}
+
+/* ---- Floating combat numbers (fixed positioned, lives in the FX layer) ---- */
+.hv-float-number{position:fixed;transform:translate(-50%,-50%);font:900 1.35rem var(--font-accent);letter-spacing:.02em;white-space:nowrap;pointer-events:none;z-index:100065;text-shadow:0 3px 10px rgba(0,0,0,.65),0 0 18px currentColor;animation:hvFloatNumber 1.4s cubic-bezier(.16,.8,.2,1) both}
+.hv-float-damage{color:#ff6b70}
+.hv-float-heal{color:#7bedaa}
+.hv-float-shield{color:#7fb4ff}
+@keyframes hvFloatNumber{0%{opacity:0;transform:translate(-50%,-40%) scale(.4) rotate(-4deg)}14%{opacity:1;transform:translate(-50%,-72%) scale(1.28) rotate(2deg)}30%{transform:translate(-50%,-64%) scale(1) rotate(0)}78%{opacity:1;transform:translate(-50%,-118%) scale(1)}100%{opacity:0;transform:translate(-50%,-148%) scale(.85)}}
+
+/* ---- Ambient particles from impacts ---- */
+.hv-particle{position:fixed;border-radius:50%;pointer-events:none;z-index:100055;transform:translate(-50%,-50%)}
+.hv-particle-damage{background:radial-gradient(circle,#ffb2a8,#ff5b5f 65%,transparent);box-shadow:0 0 8px rgba(255,90,95,.7)}
+.hv-particle-heal{background:radial-gradient(circle,#c9ffe2,#67d99a 65%,transparent);box-shadow:0 0 8px rgba(103,217,154,.7)}
+.hv-particle-buff{background:radial-gradient(circle,#fff0c2,#e1bd65 65%,transparent);box-shadow:0 0 8px rgba(225,189,101,.65)}
+.hv-particle-shield{background:radial-gradient(circle,#cfe3ff,#6da7ff 65%,transparent);box-shadow:0 0 8px rgba(109,167,255,.65)}
+.hv-particle-status{background:radial-gradient(circle,#ecd7ff,#b978ff 65%,transparent);box-shadow:0 0 8px rgba(185,120,255,.6)}
+.hv-particle-summon{background:radial-gradient(circle,#c8f3ff,#70d9ff 65%,transparent);box-shadow:0 0 8px rgba(112,217,255,.65)}
+.hv-particle-sacrifice{background:radial-gradient(circle,#f0c2c2,#d56e6e 65%,transparent);box-shadow:0 0 8px rgba(213,110,110,.6)}
+.hv-particle-revive{background:radial-gradient(circle,#c9ffe6,#73e7b0 65%,transparent);box-shadow:0 0 8px rgba(115,231,176,.65)}
+.hv-particle-taunt{background:radial-gradient(circle,#ffe0c2,#ffa45f 65%,transparent);box-shadow:0 0 8px rgba(255,164,95,.6)}
+
+/* ---- Trailing sparks behind moving glyphs ---- */
+.hv-trail-spark{position:fixed;width:10px;height:10px;border-radius:50%;pointer-events:none;z-index:100052;transform:translate(-50%,-50%)}
+.hv-trail-damage{background:radial-gradient(circle,#ffdcd6,#ff7278 70%,transparent)}
+.hv-trail-heal{background:radial-gradient(circle,#dffff0,#72d7a0 70%,transparent)}
+.hv-trail-buff{background:radial-gradient(circle,#fff3d4,#e1bd65 70%,transparent)}
+
+/* ---- Buff pulse (mirrors heal-card pulse with gold tone) ---- */
+.hv-buff-pulse{animation:hvBuffCard 1.45s ease-out}
+@keyframes hvBuffCard{0%{box-shadow:0 0 0 rgba(225,189,101,0)}35%{box-shadow:0 0 0 7px rgba(225,189,101,.16),0 0 34px rgba(225,189,101,.32)}100%{box-shadow:0 20px 42px rgba(0,0,0,.34)}}
