@@ -1,6 +1,7 @@
 /* Hero Vortex — deliberate combat choreography. */
 (() => {
-  const ACTION_CUE_MS=900, PRE_ACTION_MS=1100, STEP_MS=3200, GAP_MS=1100;
+  // Keep the animation durations intact; shorten only the breathing room between steps.
+  const ACTION_CUE_MS=650, PRE_ACTION_MS=600, STEP_MS=900, GAP_MS=500;
   const iconName={damage:'sword',heal:'heart',shield:'shield',status:'target',buff:'spark',summon:'spark',field:'spark',taunt:'target',sacrifice:'sword',revive:'heart',move:'target',delayed:'spark'};
   const labels={damage:'ATAQUE',heal:'CURA',shield:'ESCUDO',status:'STATUS',buff:'BUFF',summon:'INVOCAR',sacrifice:'SACRIFÍCIO',field:'CAMPO',taunt:'PROVOCAÇÃO',revive:'REVIVER',move:'MOVER',delayed:'EFEITO'};
   const kindOf=e=>{if(!e)return'buff';if(['dealDamage','conditionalDamage','conditionalRepeat'].includes(e.type))return'damage';if(['heal','conditionalHeal','spendCounterToHeal','conditionalLifesteal'].includes(e.type))return'heal';if(e.type==='applyShield')return'shield';if(e.type==='applyStatus')return'status';if(['gainCounter','buffMaxLife','conditionalBuff'].includes(e.type))return'buff';if(e.type==='createToken')return'summon';if(e.type==='sacrificeToken')return'sacrifice';if(e.type==='applyFieldEffect')return'field';if(e.type==='taunt')return'taunt';if(e.type==='reviveCopy')return'revive';if(e.type==='moveNow')return'move';if(e.type==='delayedEffect')return'delayed';return'buff'};
