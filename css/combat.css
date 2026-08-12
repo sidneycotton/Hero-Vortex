@@ -4,6 +4,14 @@
 
 .hv-battle-screen .hv-cast-banner{display:none!important}
 
+/* ---- pre-resolution cues: caster about to act, target about to be hit.
+   Sober by design — a thin steady outline, not a pulsing glow. The caster
+   settles into a raised resting state (no loop); the target gets a single
+   steady ring so it doesn't compete with the action-cue text above it. ---- */
+.unit-card.hv-caster-ready{animation:hvCasterReady .4s ease both;z-index:8}
+@keyframes hvCasterReady{0%{transform:translateY(0)}100%{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.32),0 0 0 1px rgba(217,184,108,.4)}}
+.unit-card.hv-target-marked{z-index:7;box-shadow:0 0 0 1px rgba(255,109,114,.55)}
+
 /* ---- terse action cue: text only, quick in-out, no icon ---- */
 .hv-action-cue{position:absolute;left:50%;top:8px;z-index:100;transform:translate(-50%,0) scale(.85);padding:4px 10px;border:1px solid rgba(244,221,161,.3);border-radius:5px;background:rgba(8,10,15,.92);font:800 .56rem var(--font-accent);letter-spacing:.14em;color:#f4dda1;pointer-events:none;animation:hvCue .28s ease both}
 .hv-action-damage{border-color:rgba(255,92,100,.4);color:#ffb3b6}
@@ -44,6 +52,12 @@
 /* ---- taunt: quick horizontal shake on the card itself ---- */
 .hv-taunt-shake{animation:hvTauntShake .45s ease-in-out}
 @keyframes hvTauntShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+/* ---- defeat: the card settles low and desaturates, then stays that way
+   (it remains on the board showing "Derrotado", so this is a resting state,
+   not an exit animation) ---- */
+.hv-defeated{animation:hvDefeat .5s ease forwards}
+@keyframes hvDefeat{0%{transform:translateY(0) rotate(0);filter:grayscale(0)}60%{transform:translateY(5px) rotate(-1.5deg)}100%{transform:translateY(8px) rotate(-2.5deg);filter:grayscale(.85);opacity:.55}}
 
 /* ---- summon / revive: a card settling into place, not floating in ---- */
 .hv-summon-enter{animation:hvSummonEnter .35s cubic-bezier(.2,.85,.2,1)}
