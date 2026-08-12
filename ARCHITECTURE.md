@@ -20,12 +20,16 @@
 - `js/systems/deckbuilder.js` — deckbuilder support system.
 - `js/systems/combat-presentation.js` — combat presentation enhancements.
 - `js/systems/audio.js` — synthesized music, sound effects, audio routing, and mute control.
+- `js/systems/visual-fx.js` — ambient visual polish: ember particles, button ripple, 3D card tilt, screen-transition cues. Purely presentational, never touches game state.
 
 ## Styling
-- `css/base.css` — foundational component styling.
-- `css/layout.css` — spacing, hierarchy, responsive composition, and layout rules.
-- `css/declaration.css` — declaration-flow layout primitives.
-- `css/modern.css` — current product-wide visual language, card-game surfaces, modern arena/deckbuilder/declaration presentation, target modal, and audio-control styling.
+- `css/base.css` — design tokens (color/typography/radius/shadow variables), resets, buttons, ripple, page-transition keyframes.
+- `css/layout.css` — home screen, deckbuilder shell, initial-deployment layout, responsive composition.
+- `css/cards.css` — all card surfaces: deckbuilder catalog card, inspector/detail sheet, and the shared `.unit-card` used in declare/battle/target contexts.
+- `css/declaration.css` — declaration-flow layout primitives (focused one-card view) plus the legacy multi-card declare board.
+- `css/modern.css` — arena/resolve screen, target overlay, choice popups, mute control.
+- `css/combat.css` — combat choreography (shake/flash/ember/float-text/action-cue). Class names are contracted with `js/systems/combat-presentation.js` — do not rename without updating both.
+- `css/effects.css` — ambient ember-field and ripple/tilt support styles used by `js/systems/visual-fx.js`.
 
 ## Architectural rules
 - Card data belongs in `cards.json`.
