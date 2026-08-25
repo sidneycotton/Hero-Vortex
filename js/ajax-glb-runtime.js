@@ -9,9 +9,9 @@
 
   const MODEL_URL = 'assets/characters/ajax/ajax.glb';
   const TARGET_HEIGHT = 2.25;
-  // The GLB's authored forward direction is opposite the game's battlefield
-  // facing direction, so rotate the imported character 180 degrees.
-  const MODEL_Y_ROTATION = Math.PI;
+  // The Ajax GLB is authored facing the game's expected battlefield direction,
+  // so do not apply an additional 180-degree turn here.
+  const MODEL_Y_ROTATION = 0;
   let sourceScene = null;
   let sourceAnimations = [];
   let loaderReady = false;
