@@ -7,11 +7,20 @@
 //  - moveLast status: units with this status are pushed to the end
 //    of the speed order (after the normal sort), regardless of ability speed.
 //  - forceImmediateAction: when this verb appears in a resolved action's
-//    effects, the target unit's OWN queued action (if not yet resolved)
-//    is spliced out of its later position and executed right now, in place
+//    effects, the target unit's OWN queued action (if not yet resolved) is spliced out of its later position and executed right now, in place
 //    of a "sub-step" inside the current action's animation beat.
 //  - Bleed (and any future roundEnd-tick status) ticks once at the end
 //    of the round, after all queued/forced actions have resolved.
+
+// Load the Ajax GLB runtime on the experimental branch. It self-registers
+// the async model swap while keeping the existing procedural fallback.
+{
+  const s = document.createElement('script');
+  s.src = 'js/ajax-3d-runtime.js';
+  s.onload = () => console.log('[Ajax 3D] runtime ready');
+  s.onerror = (e) => console.warn('[Ajax 3D] runtime failed to load', e);
+  document.head.appendChild(s);
+}
 
 // =============================================================
 // ============ ORDER STRIP UI (moved here from the old inline
@@ -89,9 +98,6 @@ async function beginResolutionPhaseV2() {
 
     if (checkGameOver()) return;
 
-    // Handle forceImmediateAction: splice the target's own still-queued
-    // action out of its later slot and run it right now, right after
-    // the action that triggered it.
     const forced = (result.applied || []).filter(a => a.verb === 'forceImmediateAction');
     for (const f of forced) {
       const forcedUnit = f.target;
@@ -103,19 +109,11 @@ async function beginResolutionPhaseV2() {
       }
     }
 
-    // Handle summon: instantiate the requested def and add it to the
-    // battle's roster/scene right now. A freshly summoned unit has no
-    // queued action this round (it didn't exist during the planning
-    // phase) — it becomes selectable starting next round.
     const summons = (result.applied || []).filter(a => a.verb === 'summon');
     for (const s of summons) {
       summonUnitFor(s.team, s.defId, s.tag, s.summonedBy);
     }
 
-    // Handle sacrificeAlly: remove the chosen unit from its roster/scene
-    // right now. If any of that unit's OWN action was still queued for
-    // later this round, drop it from the order so nothing tries to act
-    // on behalf of a unit that no longer exists.
     const sacrifices = (result.applied || []).filter(a => a.verb === 'sacrificeAlly' && a.found);
     for (const s of sacrifices) {
       const sacrificedUnit = s.target;
@@ -130,7 +128,6 @@ async function beginResolutionPhaseV2() {
 
   hideOrderStrip();
 
-  // --- Round-end status ticks (Bleed etc.) ---
   const allLiving = [...playerUnits, ...enemyUnits].filter(u => u.alive);
   for (const u of allLiving) {
     const tickResults = tickRoundEndStatuses(u);
@@ -145,7 +142,6 @@ async function beginResolutionPhaseV2() {
   }
   if (checkGameOver()) return;
 
-  // Expire round-scoped statuses (untargetable, moveLast) for next round.
   [...playerUnits, ...enemyUnits].forEach(expireRoundScopedStatuses);
 
   playerPlan = [];
@@ -158,7 +154,6 @@ async function beginResolutionPhaseV2() {
   refreshAllUnitUI();
 }
 
-// Extends the original retarget helper with an "exclude untargetable" option.
 function retargetIfDead(action, excludeUntargetable = false) {
   const targetType = action.ability.targetType || 'enemy';
   const actorIsPlayer = action.actor.team === 'player';
