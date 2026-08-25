@@ -1,0 +1,66 @@
+name: Integrate Ajax GLB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'game.html'
+      - 'js/**'
+      - '*.glb'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: ${{ !contains(github.event.head_commit.message, '[ajax-glb-integrated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ajax model and wire runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p assets/characters/ajax
+
+          model=$(find . -maxdepth 1 -type f -name '*.glb' -print -quit || true)
+          if [ -n "$model" ] && [ ! -f assets/characters/ajax/ajax.glb ]; then
+            git mv "$model" assets/characters/ajax/ajax.glb
+          fi
+
+          if [ ! -f assets/characters/ajax/ajax.glb ]; then
+            echo 'Ajax GLB not found' >&2
+            exit 1
+          fi
+
+          marker='<!-- AJAX_GLB_RUNTIME -->'
+          if ! grep -q "$marker" game.html; then
+            python3 - <<'PY'
+          from pathlib import Path
+          p = Path('game.html')
+          text = p.read_text(encoding='utf-8')
+          marker = '<!-- AJAX_GLB_RUNTIME -->'
+          injection = '''\n<!-- AJAX_GLB_RUNTIME -->\n<script src="js/ajax-glb-runtime.js"></script>\n'''
+          if '</body>' not in text:
+              raise SystemExit('game.html has no closing body tag')
+          text = text.replace('</body>', injection + '</body>', 1)
+          p.write_text(text, encoding='utf-8')
+          PY
+          fi
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add game.html js/ajax-glb-runtime.js assets/characters/ajax/ajax.glb
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit'
+            exit 0
+          fi
+          git commit -m 'Integrate real Ajax GLB [ajax-glb-integrated]'
+          git push
