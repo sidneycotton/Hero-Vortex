@@ -9,9 +9,9 @@
 
   const MODEL_URL = 'assets/characters/ajax/ajax.glb';
   const TARGET_HEIGHT = 2.25;
-  // The imported Ajax mesh is authored facing the battlefield direction already.
-  // Do not add the old 180° correction: that made him face the viewer.
-  const MODEL_Y_ROTATION = 0;
+  // The GLB's authored forward direction is opposite the game's battlefield
+  // facing direction, so rotate the imported character 180 degrees.
+  const MODEL_Y_ROTATION = Math.PI;
   let sourceScene = null;
   let sourceAnimations = [];
   let loaderReady = false;
