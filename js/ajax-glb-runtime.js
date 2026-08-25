@@ -1,15 +1,17 @@
 /* Ajax GLB runtime
  * Replaces the old procedural Ajax model with the real GLB in assets/characters/ajax/ajax.glb.
- * Supports skinned/rigged meshes and plays an embedded idle animation when available.
+ * Supports skinned/rigged meshes and embedded animations.
  */
 (function () {
   'use strict';
 
   const MODEL_URL = 'assets/characters/ajax/ajax.glb';
+  const TARGET_HEIGHT = 2.25;
   let sourceScene = null;
   let sourceAnimations = [];
   let loaderReady = false;
   const mixers = [];
+  const replaced = new WeakSet();
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -48,12 +50,9 @@
     return found;
   }
 
-  function disposeOldModel(unit) {
-    if (!unit || !unit.model) return;
-    const old = unit.model;
-    scene.remove(old);
-    old.traverse(o => {
-      if (o.userData && o.userData.ajaxGLB) return;
+  function disposeObject(root) {
+    if (!root) return;
+    root.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -69,13 +68,15 @@
   }
 
   function replaceAjaxModel(unit) {
-    if (!unit || unit.defId !== 'ajax' || !sourceScene) return;
+    if (!unit || unit.defId !== 'ajax' || !sourceScene || replaced.has(unit)) return;
 
     const oldModel = unit.model;
+    if (!oldModel) return;
+
     const position = oldModel.position.clone();
     const rotation = oldModel.rotation.clone();
-    const scale = oldModel.scale.clone();
 
+    // SkeletonUtils.clone is important for SkinnedMesh/Skeleton hierarchies.
     const clone = THREE.SkeletonUtils
       ? THREE.SkeletonUtils.clone(sourceScene)
       : sourceScene.clone(true);
@@ -83,68 +84,75 @@
     clone.name = 'ajax_glb_root';
     clone.position.copy(position);
     clone.rotation.copy(rotation);
-    clone.scale.copy(scale);
     clone.userData.ajaxGLB = true;
+
+    // Normalize the imported model to the same approximate battlefield height
+    // as the existing characters, while placing its feet on the ground.
+    const rawBox = new THREE.Box3().setFromObject(clone);
+    const rawSize = rawBox.getSize(new THREE.Vector3());
+    if (rawSize.y > 0) {
+      const scale = TARGET_HEIGHT / rawSize.y;
+      clone.scale.setScalar(scale);
+      clone.position.y -= rawBox.min.y * scale;
+    }
 
     clone.traverse(o => {
       o.userData.ajaxGLB = true;
       if (o.isMesh || o.isSkinnedMesh) {
         o.castShadow = !!renderer.shadowMap.enabled;
         o.receiveShadow = !!renderer.shadowMap.enabled;
-        if (o.material) {
-          const mats = Array.isArray(o.material) ? o.material : [o.material];
-          mats.forEach(m => { m.side = THREE.FrontSide; });
-        }
       }
     });
 
-    // The old animation system expects these handles. Point them at sensible
-    // nodes in the imported model instead of falling back to primitive parts.
+    // The existing animation code expects these handles. Point them at
+    // sensible imported nodes so combat animation still works.
     unit.model = clone;
     unit.body = clone;
     unit.core = findNamed(clone, ['core', 'Core', 'chest', 'Chest']) || clone;
-    unit.weapon = findNamed(clone, ['weapon', 'Weapon', 'right_hand', 'RightHand']) || null;
-
-    // Keep the hit point/camera framing close to the existing character scale.
-    const box = new THREE.Box3().setFromObject(clone);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    if (size.y > 0) {
-      const targetHeight = 2.25;
-      const s = targetHeight / size.y;
-      clone.scale.multiplyScalar(s);
-      clone.position.y -= center.y * s;
-    }
+    unit.weapon = findNamed(clone, ['weapon', 'Weapon', 'right_hand', 'RightHand', 'hand.R', 'Hand.R']) || null;
 
     scene.add(clone);
 
-    // If the GLB contains animation clips, use an embedded Idle/first clip.
     if (sourceAnimations.length && THREE.AnimationMixer) {
       const mixer = new THREE.AnimationMixer(clone);
       const preferred = sourceAnimations.find(a => /idle|breath|stand/i.test(a.name)) || sourceAnimations[0];
-      const action = mixer.clipAction(preferred);
-      action.reset().play();
+      mixer.clipAction(preferred).reset().play();
       mixers.push(mixer);
       unit._ajaxMixer = mixer;
     }
 
-    if (oldModel && oldModel !== clone) {
-      scene.remove(oldModel);
-      oldModel.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) {
-          const mats = Array.isArray(o.material) ? o.material : [o.material];
-          mats.forEach(m => m.dispose());
-        }
-      });
-    }
-
+    scene.remove(oldModel);
+    disposeObject(oldModel);
     unit._ajaxGLBLoaded = true;
+    replaced.add(unit);
   }
 
   function replaceAllAjax() {
-    if (typeof playerUnits !== 'undefined') playerUnits.filter(u => u.defId === 'ajax').forEach(replaceAjaxModel);
-    if (typeof enemyUnits !== 'undefined') enemyUnits.filter(u => u.defId === 'ajax').forEach(replaceAjaxModel);
+    const rosters = [];
+    if (typeof playerUnits !== 'undefined' && Array.isArray(playerUnits)) rosters.push(playerUnits);
+    if (typeof enemyUnits !== 'undefined' && Array.isArray(enemyUnits)) rosters.push(enemyUnits);
+    let count = 0;
+    rosters.flat().filter(u => u && u.defId === 'ajax').forEach(u => {
+      replaceAjaxModel(u);
+      if (u._ajaxGLBLoaded) count++;
+    });
+    return count;
+  }
+
+  function waitForUnits() {
+    // The game does NOT create its Unit objects until the player finishes the
+    // team-selection screen and calls initGame(). DOMContentLoaded is therefore
+    // too early. Poll briefly after the GLB loads, then keep a lightweight
+    // observer alive for restarts/summons.
+    const deadline = performance.now() + 30000;
+    const poll = () => {
+      const count = replaceAllAjax();
+      if (count > 0) {
+        console.info('[Hero Vortex] Ajax GLB active:', MODEL_URL, 'animations:', sourceAnimations.length);
+      }
+      if (performance.now() < deadline) requestAnimationFrame(poll);
+    };
+    poll();
   }
 
   function start() {
@@ -153,15 +161,14 @@
       .then(gltf => {
         sourceScene = gltf.scene;
         sourceAnimations = gltf.animations || [];
-        replaceAllAjax();
-        console.info('[Hero Vortex] Ajax GLB loaded:', MODEL_URL, 'animations:', sourceAnimations.length);
+        console.info('[Hero Vortex] Ajax GLB downloaded:', MODEL_URL, 'animations:', sourceAnimations.length);
+        waitForUnits();
       })
       .catch(err => {
         console.error('[Hero Vortex] Ajax GLB failed; procedural fallback remains active.', err);
       });
   }
 
-  // Mixers run alongside the game's existing render loop.
   let last = performance.now();
   function tick() {
     const now = performance.now();
@@ -171,8 +178,6 @@
     requestAnimationFrame(tick);
   }
 
-  // The main game script creates its units before DOMContentLoaded. Waiting
-  // until the document is ready guarantees playerUnits/enemyUnits exist.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
   } else {
