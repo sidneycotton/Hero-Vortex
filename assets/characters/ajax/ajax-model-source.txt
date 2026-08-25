@@ -1,0 +1,1 @@
+Generated Ajax GLB model source is maintained by the assistant-generated asset pipeline.
