@@ -1,1 +1,0 @@
-The binary Ajax GLB is generated locally and will be uploaded through the Git data API.
