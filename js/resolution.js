@@ -1,4 +1,131 @@
 // =============================================================
+// ============ AJAX 3D LAB RUNTIME =============================
+// =============================================================
+// Deterministic model installer for the experimental Ajax asset.
+// This file is loaded after the main game script has defined
+// BESPOKE_BUILDERS, so we patch the registry the game actually uses.
+
+(() => {
+  const originalAjaxBuilder = BESPOKE_BUILDERS.ajax;
+  let ajaxAssetPromise = null;
+
+  function addScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.ajaxLoaded === '1') return resolve();
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.addEventListener('load', () => { s.dataset.ajaxLoaded = '1'; resolve(); }, { once: true });
+      s.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensureAjaxAssetReady() {
+    if (!ajaxAssetPromise) {
+      ajaxAssetPromise = addScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js')
+        .then(() => addScript('js/ajax-model-asset.js'))
+        .then(() => {
+          if (typeof window.loadAjaxGameModel !== 'function') {
+            throw new Error('Ajax model asset did not expose loadAjaxGameModel()');
+          }
+          console.log('[Ajax 3D] asset loader ready');
+        })
+        .catch(err => {
+          window.__AJAX_3D_LAST_ERROR = String(err && err.message ? err.message : err);
+          console.error('[Ajax 3D] asset loader failed', err);
+          throw err;
+        });
+    }
+    return ajaxAssetPromise;
+  }
+
+  function disposeObject(root) {
+    if (!root) return;
+    root.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (!o.material) return;
+      if (Array.isArray(o.material)) o.material.forEach(m => m.dispose && m.dispose());
+      else if (o.material.dispose) o.material.dispose();
+    });
+  }
+
+  function addAjaxOutlines(sceneRoot) {
+    const outlineMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
+    sceneRoot.traverse(o => {
+      if (!o.isMesh || o.userData.isOutline) return;
+      const outline = new THREE.Mesh(o.geometry, outlineMat);
+      outline.scale.multiplyScalar(1.035);
+      outline.userData.isOutline = true;
+      outline.renderOrder = -1;
+      o.add(outline);
+    });
+  }
+
+  BESPOKE_BUILDERS.ajax = function ajax3dBuilder(bodyGroup, mainMat, accentMat, def) {
+    const anchor = new THREE.Group();
+    anchor.name = 'ajax_model_anchor';
+    bodyGroup.add(anchor);
+
+    const core = new THREE.Group();
+    core.name = 'core';
+    bodyGroup.add(core);
+
+    if (typeof originalAjaxBuilder === 'function') {
+      try {
+        originalAjaxBuilder(bodyGroup, mainMat, accentMat, def);
+      } catch (err) {
+        console.warn('[Ajax 3D] procedural fallback failed', err);
+      }
+    }
+
+    ensureAjaxAssetReady().then(() => new Promise((resolve, reject) => {
+      window.loadAjaxGameModel(resolve, reject);
+    })).then(sceneRoot => {
+      sceneRoot.name = 'AjaxGLB';
+      sceneRoot.scale.setScalar(1.0);
+
+      sceneRoot.traverse(obj => {
+        if (!obj.isMesh) return;
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      });
+
+      const weaponHook = new THREE.Group();
+      weaponHook.name = 'weapon';
+      sceneRoot.add(weaponHook);
+      anchor.add(sceneRoot);
+      addAjaxOutlines(sceneRoot);
+
+      [...bodyGroup.children].forEach(child => {
+        if (child === anchor || child === core) return;
+        bodyGroup.remove(child);
+        disposeObject(child);
+      });
+
+      window.__AJAX_3D_LAST_ERROR = null;
+      console.log('[Ajax 3D] GLB installed successfully');
+    }).catch(err => {
+      window.__AJAX_3D_LAST_ERROR = String(err && err.message ? err.message : err);
+      console.error('[Ajax 3D] GLB installation failed; procedural fallback remains.', err);
+    });
+
+    return [];
+  };
+
+  window.AJAX_3D_STATUS = () => ({
+    patched: BESPOKE_BUILDERS.ajax !== originalAjaxBuilder,
+    assetLoading: !!ajaxAssetPromise,
+    error: window.__AJAX_3D_LAST_ERROR || null
+  });
+})();
+
+// =============================================================
 // ============ RESOLUTION PHASE (v2) ============================
 // =============================================================
 // Extends the original speed-sort resolver to support:
@@ -12,11 +139,6 @@
 //    of a "sub-step" inside the current action's animation beat.
 //  - Bleed (and any future roundEnd-tick status) ticks once at the end
 //    of the round, after all queued/forced actions have resolved.
-
-// =============================================================
-// ============ ORDER STRIP UI (moved here from the old inline
-// ============ beginResolutionPhase block it originally lived in)
-// =============================================================
 
 const orderStripEl = document.getElementById('order-strip');
 
@@ -38,14 +160,13 @@ function hideOrderStrip() {
 async function beginResolutionPhaseV2() {
   if (phase !== 'planning' || gameOver || !allPlanned()) return;
   phase = 'resolving';
-  setCameraOrbitEnabled(false); // ease/snap back to the home framing as battle starts
+  setCameraOrbitEnabled(false);
   inputLocked = true;
   selectedUnit = null; selectedAbility = null;
   renderPartyRow(); renderAbilityRow(); renderTargetRings();
   setTurnIndicator('resolving');
 
   const round = (window._roundCounter = (window._roundCounter || 0) + 1);
-
   const enemyPlan = [];
   const livingEnemies = enemyUnits.filter(u => u.alive);
   for (const actor of livingEnemies) {
@@ -57,8 +178,6 @@ async function beginResolutionPhaseV2() {
     .map(a => ({ ...a, tiebreak: Math.random(), resolved: false }))
     .sort((a, b) => (a.ability.speed - b.ability.speed) || (a.tiebreak - b.tiebreak));
 
-  // moveLast: units carrying that status act after everyone else this round,
-  // preserving relative order among themselves.
   allActions = [
     ...allActions.filter(a => !hasStatus(a.actor, 'moveLast')),
     ...allActions.filter(a => hasStatus(a.actor, 'moveLast'))
@@ -70,12 +189,11 @@ async function beginResolutionPhaseV2() {
   while (i < allActions.length) {
     const action = allActions[i];
     renderOrderStrip(allActions, i);
-
     if (action.resolved || !action.actor.alive) { i++; continue; }
 
     let target = action.target;
     if (!target.alive || hasStatus(target, 'untargetable')) {
-      target = retargetIfDead(action, /*excludeUntargetable*/ true);
+      target = retargetIfDead(action, true);
       if (!target) {
         addLogLine(`${action.actor.displayName}'s ${action.ability.name} had no valid target and fizzled.`, 'info');
         action.resolved = true; i++; continue;
@@ -86,12 +204,8 @@ async function beginResolutionPhaseV2() {
     CombatEngine.recordHistory(action.actor, action.ability.id);
     const result = await AnimationEngine.play({ actor: action.actor, ability: action.ability, target, playerUnits, enemyUnits, round, echo: action.echo, secondTarget: action.secondTarget });
     action.resolved = true;
-
     if (checkGameOver()) return;
 
-    // Handle forceImmediateAction: splice the target's own still-queued
-    // action out of its later slot and run it right now, right after
-    // the action that triggered it.
     const forced = (result.applied || []).filter(a => a.verb === 'forceImmediateAction');
     for (const f of forced) {
       const forcedUnit = f.target;
@@ -103,19 +217,9 @@ async function beginResolutionPhaseV2() {
       }
     }
 
-    // Handle summon: instantiate the requested def and add it to the
-    // battle's roster/scene right now. A freshly summoned unit has no
-    // queued action this round (it didn't exist during the planning
-    // phase) — it becomes selectable starting next round.
     const summons = (result.applied || []).filter(a => a.verb === 'summon');
-    for (const s of summons) {
-      summonUnitFor(s.team, s.defId, s.tag, s.summonedBy);
-    }
+    for (const s of summons) summonUnitFor(s.team, s.defId, s.tag, s.summonedBy);
 
-    // Handle sacrificeAlly: remove the chosen unit from its roster/scene
-    // right now. If any of that unit's OWN action was still queued for
-    // later this round, drop it from the order so nothing tries to act
-    // on behalf of a unit that no longer exists.
     const sacrifices = (result.applied || []).filter(a => a.verb === 'sacrificeAlly' && a.found);
     for (const s of sacrifices) {
       const sacrificedUnit = s.target;
@@ -130,7 +234,6 @@ async function beginResolutionPhaseV2() {
 
   hideOrderStrip();
 
-  // --- Round-end status ticks (Bleed etc.) ---
   const allLiving = [...playerUnits, ...enemyUnits].filter(u => u.alive);
   for (const u of allLiving) {
     const tickResults = tickRoundEndStatuses(u);
@@ -145,9 +248,7 @@ async function beginResolutionPhaseV2() {
   }
   if (checkGameOver()) return;
 
-  // Expire round-scoped statuses (untargetable, moveLast) for next round.
   [...playerUnits, ...enemyUnits].forEach(expireRoundScopedStatuses);
-
   playerPlan = [];
   echoSubMode = null;
   phase = 'planning';
@@ -158,16 +259,12 @@ async function beginResolutionPhaseV2() {
   refreshAllUnitUI();
 }
 
-// Extends the original retarget helper with an "exclude untargetable" option.
 function retargetIfDead(action, excludeUntargetable = false) {
   const targetType = action.ability.targetType || 'enemy';
   const actorIsPlayer = action.actor.team === 'player';
   let pool;
-  if (targetType === 'ally') {
-    pool = actorIsPlayer ? playerUnits : enemyUnits;
-  } else {
-    pool = actorIsPlayer ? enemyUnits : playerUnits;
-  }
+  if (targetType === 'ally') pool = actorIsPlayer ? playerUnits : enemyUnits;
+  else pool = actorIsPlayer ? enemyUnits : playerUnits;
   let living = pool.filter(u => u.alive);
   if (excludeUntargetable) living = living.filter(u => !hasStatus(u, 'untargetable'));
   if (action.ability.targetFilter) living = living.filter(u => action.ability.targetFilter(u));
