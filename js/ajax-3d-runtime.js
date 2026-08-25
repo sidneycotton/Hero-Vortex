@@ -1,18 +1,19 @@
-/* Ajax 3D runtime: use the self-contained white-shark model. */
+/* Ajax 3D runtime: load the generated GLB hero model. */
 (() => {
   let ready = null;
 
   function loadAjaxModel() {
     if (!ready) {
       ready = new Promise((resolve, reject) => {
-        if (typeof window.createAjaxPS3Model === 'function') return resolve();
-        const s = document.createElement('script');
-        s.src = 'assets/characters/ajax/ajax-model.js';
-        s.onload = () => typeof window.createAjaxPS3Model === 'function'
-          ? resolve()
-          : reject(new Error('Ajax model loaded but createAjaxPS3Model is missing'));
-        s.onerror = () => reject(new Error('Failed to load Ajax model'));
-        document.head.appendChild(s);
+        const load = () => {
+          if (typeof THREE !== 'undefined' && typeof THREE.GLTFLoader === 'function') return resolve();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js';
+          s.onload = () => typeof THREE.GLTFLoader === 'function' ? resolve() : reject(new Error('GLTFLoader unavailable'));
+          s.onerror = () => reject(new Error('Failed to load GLTFLoader'));
+          document.head.appendChild(s);
+        };
+        load();
       });
     }
     return ready;
@@ -23,42 +24,34 @@
     const anchor = new THREE.Group();
     anchor.name = 'ajax_model_anchor';
     bodyGroup.add(anchor);
-
-    let fallback = [];
     if (typeof original === 'function') {
-      try { fallback = original(bodyGroup, mainMat, accentMat, def) || []; } catch (e) {}
+      try { original(bodyGroup, mainMat, accentMat, def); } catch (e) {}
     }
 
-    loadAjaxModel().then(() => {
-      const model = window.createAjaxPS3Model(THREE);
-      model.name = 'Ajax_White_Shark';
+    loadAjaxModel().then(() => new Promise((resolve, reject) => {
+      const loader = new THREE.GLTFLoader();
+      loader.load('assets/characters/ajax/ajax.glb', gltf => resolve(gltf.scene), undefined, reject);
+    })).then(model => {
+      model.name = 'Ajax_GLTF';
       model.scale.setScalar(1);
-      model.traverse(o => {
-        if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
-      });
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       anchor.add(model);
-
       [...bodyGroup.children].forEach(child => {
         if (child === anchor) return;
         bodyGroup.remove(child);
         child.traverse(o => {
           if (o.geometry) o.geometry.dispose();
-          if (o.material) {
-            if (Array.isArray(o.material)) o.material.forEach(m => m.dispose && m.dispose());
-            else if (o.material.dispose) o.material.dispose();
-          }
+          if (o.material && o.material.dispose) o.material.dispose();
         });
       });
-
       window.__AJAX_3D_LAST_ERROR = null;
       window.__AJAX_3D_STATUS = 'ready';
-      console.log('[Ajax 3D] WHITE SHARK MODEL INSTALLED', model);
+      console.log('[Ajax 3D] GLB MODEL INSTALLED', model);
     }).catch(err => {
       window.__AJAX_3D_LAST_ERROR = String(err.message || err);
       window.__AJAX_3D_STATUS = 'error';
-      console.error('[Ajax 3D] model installation failed', err);
+      console.error('[Ajax 3D] GLB installation failed', err);
     });
-
-    return fallback;
+    return [];
   };
 })();
