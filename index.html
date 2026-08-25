@@ -1,0 +1,3014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Babawibby: 3v3 Battle Engine Demo</title>
+<style>
+  :root {
+    --panel-bg: rgba(10,12,20,0.92);
+    --accent: #6ee7ff;
+    --player: #4fd1c5;
+    --enemy: #ff6b6b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #05060a; color: #e8eefc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; overscroll-behavior: none; touch-action: manipulation;
+  }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #canvas-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+  #canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+
+  /* Floating name/HP labels over units */
+  #label-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+  .unit-label {
+    position: absolute; transform: translate(-50%, -100%);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 64px; pointer-events: none; transition: opacity 0.2s;
+  }
+  .unit-label .name {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    color: #fff;
+  }
+  .unit-label.dead .name { opacity: 0.35; text-decoration: line-through; }
+  .hp-bar-bg {
+    width: 60px; height: 7px; border-radius: 4px;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.25);
+    overflow: hidden;
+  }
+  .hp-bar-fill { height: 100%; border-radius: 3px; transition: width 0.35s ease; }
+  .hp-bar-fill.player { background: linear-gradient(90deg,#2dd4bf,#4fd1c5); }
+  .hp-bar-fill.enemy { background: linear-gradient(90deg,#f87171,#ff6b6b); }
+  .hp-text { font-size: 9px; color: #cfe8ff; text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
+  .shield-pip {
+    font-size: 9px; color: #ffe27a; text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  }
+  .status-row {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 3px;
+    max-width: 90px;
+  }
+  .status-pip {
+    font-size: 8px; line-height: 1; padding: 2px 4px; border-radius: 8px;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.25);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.9); white-space: nowrap;
+  }
+  .status-pip.status-kind-bleed { border-color: rgba(255,107,107,0.7); color: #ffb0b0; }
+  .status-pip.counter-pip { border-color: rgba(255,226,122,0.7); color: #ffe27a; }
+  .selected-ring {
+    position: absolute; width: 78px; height: 78px; border-radius: 50%;
+    border: 2px solid var(--accent); transform: translate(-50%,-50%);
+    box-shadow: 0 0 14px var(--accent);
+    animation: pulse-ring 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse-ring { 0%,100% { opacity: 0.9; transform: translate(-50%,-50%) scale(0.95);} 50% { opacity: 0.4; transform: translate(-50%,-50%) scale(1.08);} }
+  .targetable-ring {
+    position: absolute; width: 70px; height: 70px; border-radius: 50%;
+    border: 2px dashed var(--enemy); transform: translate(-50%,-50%);
+    pointer-events: auto; cursor: pointer;
+  }
+
+  /* Target list panel — alternate way to pick a target, listing valid
+     targets as tappable rows instead of finding their ring on the board. */
+  #target-list-panel {
+    position: absolute; top: 42px; right: 10px; z-index: 6;
+    display: none; flex-direction: column; gap: 5px;
+    background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 7px; width: min(150px, 42vw);
+  }
+  #target-list-panel.show { display: flex; }
+  #target-list-panel.log-open { top: calc(42px + 34vh + 8px); }
+  .target-list-title {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    color: #8fb0d9; padding: 0 2px 1px 2px;
+  }
+  .target-list-row {
+    display: flex; flex-direction: column; gap: 2px;
+    background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.14);
+    border-radius: 8px; padding: 5px 7px; cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .target-list-row:active { transform: scale(0.97); }
+  .target-list-row.tl-enemy { border-color: rgba(255,107,107,0.35); }
+  .target-list-row.tl-ally { border-color: rgba(79,209,197,0.35); }
+  .target-list-row:hover { border-color: var(--accent); }
+  .tl-name-line { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .tl-name { font-size: 10.5px; font-weight: 700; color: #fff; }
+  .tl-hp-num { font-size: 9.5px; font-weight: 700; color: #cfe8ff; white-space: nowrap; }
+  .tl-hpwrap { width: 100%; height: 5px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden; }
+  .tl-hpfill { height: 100%; transition: width 0.3s; }
+  .tl-hpfill.tl-enemy-fill { background: linear-gradient(90deg,#f87171,#ff6b6b); }
+  .tl-hpfill.tl-ally-fill { background: linear-gradient(90deg,#2dd4bf,#4fd1c5); }
+  .tl-extra { font-size: 8px; color: #9fb6d9; }
+
+  /* Floating combat text */
+  .float-text {
+    position: absolute; font-weight: 800; font-size: 15px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+    pointer-events: none; white-space: nowrap;
+    animation: float-up 1.1s ease-out forwards;
+  }
+  @keyframes float-up {
+    0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+    15% { transform: translate(-50%, -8px) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, -60px) scale(1); opacity: 0; }
+  }
+  .float-text.dmg { color: #ff8a8a; }
+  .float-text.heal { color: #7dffb0; }
+  .float-text.shield { color: #ffe27a; }
+  .float-text.crit { color: #ff5252; font-size: 20px; }
+
+  /* Top bar */
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 6;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: max(8px, env(safe-area-inset-top)) 10px 0 10px;
+    pointer-events: none;
+  }
+  #turn-indicator {
+    pointer-events: auto;
+    background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+  #turn-indicator.player-turn { color: var(--player); }
+  #turn-indicator.enemy-turn { color: var(--enemy); }
+  #log-toggle {
+    pointer-events: auto;
+    background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 6px 10px; font-size: 11px; color: #cfe8ff;
+  }
+
+  /* Combat log */
+  #log-panel {
+    position: absolute; top: 42px; right: 10px; z-index: 6;
+    width: min(240px, 60vw); max-height: 34vh; overflow-y: auto;
+    background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 8px 10px; font-size: 11px; line-height: 1.5;
+    display: none;
+  }
+  #log-panel.open { display: block; }
+  #log-panel div { color: #b9c8e6; margin-bottom: 2px; }
+  #log-panel div.hit { color: #ffb4b4; }
+  #log-panel div.heal { color: #9dffc6; }
+  #log-panel div.info { color: #8fd3ff; }
+
+  #order-strip {
+    position: absolute; top: 42px; left: 10px; z-index: 6;
+    display: none; gap: 4px; background: var(--panel-bg);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+    padding: 6px 8px; max-width: 70vw; overflow-x: auto;
+  }
+  #order-strip.show { display: flex; }
+  .order-chip {
+    flex: 0 0 auto; font-size: 9px; font-weight: 700; padding: 3px 7px;
+    border-radius: 6px; background: rgba(255,255,255,0.08); color: #cfe8ff;
+    white-space: nowrap; opacity: 0.5;
+  }
+  .order-chip.player { border: 1px solid var(--player); }
+  .order-chip.enemy { border: 1px solid var(--enemy); }
+  .order-chip.active { opacity: 1; transform: scale(1.08); box-shadow: 0 0 8px rgba(255,255,255,0.3); }
+  .order-chip.done { opacity: 0.25; text-decoration: line-through; }
+
+  /* Bottom control panel */
+  #controls {
+    position: relative; z-index: 6; flex: 0 0 auto;
+    background: var(--panel-bg); border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 10px max(8px, env(safe-area-inset-bottom)) 10px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  #party-row {
+    display: flex; gap: 6px; justify-content: space-between;
+  }
+  .party-card {
+    flex: 1 1 0; min-width: 0;
+    background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 6px 4px; text-align: center;
+    display: flex; flex-direction: column; gap: 3px; align-items: center;
+    transition: border-color 0.15s, background 0.15s; cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+  }
+  .party-card.selected { border-color: var(--accent); background: rgba(110,231,255,0.1); }
+  .party-card.dead { opacity: 0.4; cursor: default; }
+  .party-card .pc-name { font-size: 10px; font-weight: 700; }
+  .party-card .pc-hpwrap { width: 100%; height: 5px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden; }
+  .party-card .pc-hpfill { height: 100%; background: linear-gradient(90deg,#2dd4bf,#4fd1c5); transition: width 0.3s; }
+  .party-card .pc-hptext { font-size: 8px; color: #9fb6d9; }
+
+  #ability-row {
+    display: flex; gap: 6px;
+    min-height: 54px;
+  }
+  .ability-btn {
+    flex: 1 1 0; min-width: 0;
+    background: linear-gradient(180deg, rgba(110,231,255,0.16), rgba(110,231,255,0.05));
+    border: 1.5px solid rgba(110,231,255,0.4); border-radius: 10px;
+    padding: 6px 4px; color: #eafcff; font-size: 11px; font-weight: 700;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    -webkit-user-select: none; user-select: none;
+  }
+  .ability-btn .ab-desc { font-size: 8.5px; font-weight: 500; color: #b7d9e0; }
+  .ability-btn .ab-speed { font-size: 8.5px; font-weight: 600; color: #ffe27a; }
+  .ability-btn.queued { border-color: #7dffb0; background: linear-gradient(180deg, rgba(125,255,176,0.2), rgba(125,255,176,0.05)); }
+  .ability-btn.locked-in { opacity: 0.5; }
+  .ability-btn:active { transform: scale(0.96); }
+  .ability-btn.disabled { opacity: 0.35; filter: grayscale(0.5); }
+  .ability-btn.empty { visibility: hidden; }
+
+  #status-line {
+    font-size: 11px; color: #a8c1e6; text-align: center; min-height: 14px;
+  }
+
+  /* Overlay for victory/defeat */
+  #overlay {
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(3,4,8,0.86);
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+    text-align: center; padding: 20px;
+  }
+  #overlay.show { display: flex; }
+  #overlay h1 { font-size: 28px; margin: 0; letter-spacing: 1px; }
+  #overlay h1.win { color: #7dffb0; text-shadow: 0 0 20px rgba(125,255,176,0.5); }
+  #overlay h1.lose { color: #ff8a8a; text-shadow: 0 0 20px rgba(255,138,138,0.5); }
+  #restart-btn {
+    background: var(--accent); color: #05121a; border: none; border-radius: 10px;
+    padding: 12px 28px; font-size: 15px; font-weight: 800; cursor: pointer;
+  }
+  #restart-btn:active { transform: scale(0.96); }
+
+  #team-select {
+    position: absolute; inset: 0; z-index: 25;
+    background: rgba(3,4,8,0.94);
+    display: none; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 24px 16px; overflow-y: auto; gap: 18px;
+  }
+  #team-select.show { display: flex; }
+  #team-select h1 { font-size: 20px; margin: 4px 0 0; letter-spacing: 0.5px; color: #6ee7ff; }
+  #team-select .ts-sub { color: #b9c8e6; font-size: 12px; margin-bottom: 4px; text-align: center; }
+  .ts-role-group { width: 100%; max-width: 520px; }
+  .ts-role-label { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #7fd8ff; margin: 0 0 8px 4px; }
+  .ts-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ts-card {
+    flex: 1 1 140px; min-width: 130px; background: rgba(255,255,255,0.04);
+    border: 2px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 12px;
+    cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s;
+  }
+  .ts-card:active { transform: scale(0.98); }
+  .ts-card.selected { border-color: #7dffb0; background: rgba(125,255,176,0.1); }
+  .ts-card .ts-name { font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+  .ts-card .ts-hp { font-size: 11px; color: #b9c8e6; }
+  #team-select-confirm {
+    background: var(--accent); color: #05121a; border: none; border-radius: 10px;
+    padding: 12px 32px; font-size: 15px; font-weight: 800; cursor: pointer;
+    margin-top: 6px; opacity: 0.4; pointer-events: none;
+  }
+  #team-select-confirm.ready { opacity: 1; pointer-events: auto; }
+
+  #loading {
+    position: absolute; inset: 0; z-index: 30; background: #05060a;
+    display: flex; align-items: center; justify-content: center;
+    color: #6ee7ff; font-size: 13px; letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-wrap">
+    <div id="loading">Loading battlefield…</div>
+    <div id="label-layer"></div>
+    <div id="topbar">
+      <div id="turn-indicator" class="player-turn">YOUR TURN</div>
+      <div id="log-toggle">Log ▾</div>
+    </div>
+    <div id="log-panel"></div>
+    <div id="order-strip"></div>
+    <div id="target-list-panel"></div>
+  </div>
+  <div id="controls">
+    <div id="status-line">Select one of your units</div>
+    <div id="party-row"></div>
+    <div id="ability-row"></div>
+  </div>
+  <div id="team-select">
+    <h1>CHOOSE YOUR TEAM</h1>
+    <div class="ts-sub">Pick one card for each role: Defender, Attacker, Support</div>
+    <div id="team-select-groups"></div>
+    <button id="team-select-confirm">Start Battle</button>
+  </div>
+  <div id="overlay">
+    <h1 id="overlay-title">VICTORY</h1>
+    <div id="overlay-sub" style="color:#b9c8e6;font-size:13px;"></div>
+    <button id="restart-btn">Restart Battle</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/units.js"></script>
+<script src="js/combat-engine.js"></script>
+<script>
+// =============================================================
+// ============ SECTION 1: DATA-DRIVEN UNIT DEFINITIONS ========
+// =============================================================
+// Combat engine only reads .stats and .abilities.
+// Animation engine only reads .animKey per ability + unit.animations.
+// Neither engine hard-codes the other's concerns.
+
+// UNIT_DEFS / PLAYER_ORDER / ENEMY_ORDER now loaded from js/units.js
+
+// Abilities no longer carry a single .type since they can mix multiple
+// effect verbs (e.g. Ajax's Duelo is damage+damage, Mariana's Golpe de Luz
+// is damage+gainCounter). This derives a primary "flavor" for anything that
+// still needs one bucket to reason about: animation choreography choice
+// and the simple AI's heuristics.
+function primaryEffectType(ability) {
+  const verbs = ability.effects.map(e => e.verb);
+  if (verbs.includes('heal')) return 'heal';
+  if (verbs.includes('shield')) return 'shield';
+  if (verbs.includes('damage')) return 'attack';
+  return verbs[0] || 'attack';
+}
+
+// =============================================================
+// ============ SECTION 2: THREE.JS SCENE SETUP ================
+// =============================================================
+
+const canvasWrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x05060a, 0.028);
+
+const camera = new THREE.PerspectiveCamera(45, canvasWrap.clientWidth / canvasWrap.clientHeight, 0.1, 100);
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 700;
+const CAMERA_LOOK_AT = new THREE.Vector3(0, 1, 0);
+camera.position.set(0, isMobile ? 9.5 : 8, isMobile ? 14.5 : 12);
+camera.lookAt(CAMERA_LOOK_AT);
+
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 2 : 2));
+renderer.setSize(canvasWrap.clientWidth, canvasWrap.clientHeight);
+renderer.shadowMap.enabled = !isMobile; // skip shadows on mobile for perf
+if (renderer.shadowMap.enabled) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+canvasWrap.appendChild(renderer.domElement);
+
+// Ground
+const groundGeo = new THREE.CircleGeometry(16, 48);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0c1018, roughness: 0.9, metalness: 0.1 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Center divide glow ring
+const ringGeo = new THREE.RingGeometry(3.6, 3.75, 48);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x1a3a4a, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+const centerRing = new THREE.Mesh(ringGeo, ringMat);
+centerRing.rotation.x = -Math.PI / 2;
+centerRing.position.y = 0.02;
+scene.add(centerRing);
+
+// Grid lines
+const grid = new THREE.GridHelper(20, 20, 0x1c2740, 0x121826);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0x445566, 0.55);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+keyLight.position.set(4, 10, 6);
+keyLight.castShadow = renderer.shadowMap.enabled;
+if (keyLight.castShadow) {
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.left = -10; keyLight.shadow.camera.right = 10;
+  keyLight.shadow.camera.top = 10; keyLight.shadow.camera.bottom = -10;
+}
+scene.add(keyLight);
+
+// Team-colored rim lights
+const playerLight = new THREE.PointLight(0x4fd1c5, 1.1, 14);
+playerLight.position.set(0, 3, 6);
+scene.add(playerLight);
+
+const enemyLight = new THREE.PointLight(0xff6b6b, 1.1, 14);
+enemyLight.position.set(0, 3, -6);
+scene.add(enemyLight);
+
+function onResize() {
+  const w = canvasWrap.clientWidth, h = canvasWrap.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+
+// =============================================================
+// ============ SECTION 3: ANIMATION PRIMITIVES =================
+// =============================================================
+// Generalized from the Babawibby Turret MVP's timeline/easing/
+// particle system. These primitives know nothing about "damage"
+// or "healing" — only about moving/scaling/spawning things.
+
+const Easing = {
+  linear: t => t,
+  quadOut: t => 1 - (1 - t) * (1 - t),
+  quadIn: t => t * t,
+  cubicOut: t => 1 - Math.pow(1 - t, 3),
+  cubicIn: t => t * t * t,
+  backOut: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+  elasticOut: t => {
+    const c4 = (2 * Math.PI) / 3;
+    return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+  },
+  sineInOut: t => -(Math.cos(Math.PI * t) - 1) / 2
+};
+
+// A single running "clip": duration, update(progress), optional onComplete.
+class Clip {
+  constructor(duration, update, onComplete) {
+    this.duration = Math.max(duration, 0.0001);
+    this.update = update;
+    this.onComplete = onComplete;
+    this.elapsed = 0;
+    this.done = false;
+  }
+  tick(dt) {
+    if (this.done) return;
+    this.elapsed += dt;
+    const t = Math.min(this.elapsed / this.duration, 1);
+    this.update(t);
+    if (t >= 1) {
+      this.done = true;
+      if (this.onComplete) this.onComplete();
+    }
+  }
+}
+
+// The AnimationRunner plays a queue of steps. Each step is either:
+//  - a Clip-producing function -> runs and waits for completion (sequence)
+//  - an array of step-defs -> runs all in parallel, waits for all (parallel)
+//  - a plain function -> runs synchronously (instant callback / event marker)
+//  - {wait: seconds} -> pause
+// This mirrors the Babawibby MVP's "timeline -> event -> effect -> next event" chain.
+class AnimationRunner {
+  constructor() {
+    this.activeClips = [];
+  }
+
+  tick(dt) {
+    for (let i = this.activeClips.length - 1; i >= 0; i--) {
+      this.activeClips[i].tick(dt);
+      if (this.activeClips[i].done) this.activeClips.splice(i, 1);
+    }
+  }
+
+  // Runs a list of step definitions in strict sequence, returns a Promise.
+  async playSequence(steps) {
+    for (const step of steps) {
+      await this._runStep(step);
+    }
+  }
+
+  async _runStep(step) {
+    if (!step) return;
+    if (typeof step === 'function') {
+      // Instant callback / event marker (e.g. "GAMEPLAY DAMAGE EVENT")
+      return step();
+    }
+    if (step.wait !== undefined) {
+      return this._runClip(new Clip(step.wait, () => {}));
+    }
+    if (Array.isArray(step)) {
+      // Parallel group
+      return Promise.all(step.map(s => this._runStep(s)));
+    }
+    if (step.clip) {
+      return this._runClip(step.clip);
+    }
+  }
+
+  _runClip(clip) {
+    return new Promise(resolve => {
+      const originalOnComplete = clip.onComplete;
+      clip.onComplete = () => { if (originalOnComplete) originalOnComplete(); resolve(); };
+      this.activeClips.push(clip);
+    });
+  }
+}
+
+const animRunner = new AnimationRunner();
+
+// --- Reusable primitive builders -------------------------------
+// Each returns a "step" consumable by playSequence.
+
+function moveTo(obj3d, toVec3, duration, easeFn = Easing.cubicOut) {
+  return {
+    clip: new Clip(duration, t => {
+      const e = easeFn(t);
+      obj3d.position.lerpVectors(obj3d.userData._moveFrom, toVec3, e);
+    }, () => {})
+  };
+  // Note: caller must set obj3d.userData._moveFrom = obj3d.position.clone() before invoking.
+}
+
+function makeMove(obj3d, toVec3, duration, easeFn = Easing.cubicOut) {
+  return () => {
+    obj3d.userData._moveFrom = obj3d.position.clone();
+    return moveTo(obj3d, toVec3, duration, easeFn);
+  };
+}
+
+// Simpler helper: directly build a move step capturing "from" at call time.
+function moveStep(obj3d, toVec3, duration, easeFn = Easing.cubicOut) {
+  return {
+    clip: (() => {
+      const from = obj3d.position.clone();
+      return new Clip(duration, t => {
+        const e = easeFn(t);
+        obj3d.position.lerpVectors(from, toVec3, e);
+      });
+    })()
+  };
+}
+
+function scaleStep(obj3d, toScale, duration, easeFn = Easing.quadOut) {
+  return {
+    clip: (() => {
+      const from = obj3d.scale.clone();
+      const to = new THREE.Vector3(toScale, toScale, toScale);
+      return new Clip(duration, t => {
+        const e = easeFn(t);
+        obj3d.scale.lerpVectors(from, to, e);
+      });
+    })()
+  };
+}
+
+function squashStretchStep(obj3d, sx, sy, sz, duration, easeFn = Easing.backOut) {
+  return {
+    clip: (() => {
+      const from = obj3d.scale.clone();
+      const to = new THREE.Vector3(sx, sy, sz);
+      return new Clip(duration, t => {
+        const e = easeFn(t);
+        obj3d.scale.lerpVectors(from, to, e);
+      });
+    })()
+  };
+}
+
+function rotateStep(obj3d, toY, duration, easeFn = Easing.quadOut) {
+  return {
+    clip: (() => {
+      const from = obj3d.rotation.y;
+      return new Clip(duration, t => {
+        const e = easeFn(t);
+        obj3d.rotation.y = from + (toY - from) * e;
+      });
+    })()
+  };
+}
+
+function waitStep(seconds) {
+  return { wait: seconds };
+}
+
+function callbackStep(fn) {
+  return fn;
+}
+
+// ---- Toon shading helper (from babawibby_zoom_v3.html reference) -----
+// A 3-stop gradient map read by MeshToonMaterial to band the lighting into
+// flat shade/mid/highlight steps instead of Standard's smooth PBR falloff.
+// One shared gradient texture for every character (cheap, consistent look).
+// Declared here (before MoveLibrary) since MoveLibrary's impact-plugin
+// moves (boxingGlove/biteJaw) build MeshToonMaterial instances that need it.
+function makeToonGradient(stops) {
+  const canvas = document.createElement('canvas');
+  canvas.width = stops.length; canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  stops.forEach((v, i) => { ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(i, 0, 1, 1); });
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.NearestFilter; tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+const TOON_GRADIENT = makeToonGradient([70, 170, 255]);
+
+// =============================================================
+// ============ MOVE LIBRARY (generic, reusable per-move flourishes) ====
+// =============================================================
+// Layer above the raw step builders above. Every function here is a
+// generic, parametrized animation move with NO character-specific logic —
+// character personality comes from which moves a CHARACTER_ANIM_PROFILE
+// picks and what parameters it passes, not from anything hardcoded here.
+// Each function returns a "step" (or array of steps) consumable by
+// animRunner.playSequence, same contract as moveStep/scaleStep/etc.
+
+const MoveLibrary = {
+  // Pop an object from scale 0 to a target scale with a springy overshoot.
+  // Good for spawn-ins / sudden appearances (e.g. Babawibby popping into frame).
+  popIn(obj3d, { scale = 1, duration = 0.32, easing = Easing.backOut } = {}) {
+    return {
+      clip: (() => {
+        obj3d.scale.set(0, 0, 0);
+        const to = new THREE.Vector3(scale, scale, scale);
+        return new Clip(duration, t => {
+          const e = easing(t);
+          obj3d.scale.set(to.x * e, to.y * e, to.z * e);
+        });
+      })()
+    };
+  },
+
+  // Cartoon squash & stretch toward (sx,sy,sz) and back to (1,1,1).
+  // intensity scales how far from 1 the squash/stretch axes are pushed.
+  squashStretch(obj3d, { intensity = 1, duration = 0.22, axis = 'y', easingOut = Easing.quadOut, easingBack = Easing.backOut } = {}) {
+    const stretch = 1 + 0.22 * intensity;
+    const squash = 1 - 0.22 * intensity;
+    const sx = axis === 'x' ? stretch : squash;
+    const sy = axis === 'y' ? stretch : squash;
+    const sz = axis === 'z' ? stretch : squash;
+    return [
+      squashStretchStep(obj3d, sx, sy, sz, duration * 0.4, easingOut),
+      squashStretchStep(obj3d, 1, 1, 1, duration * 0.6, easingBack)
+    ];
+  },
+
+  // A quick vertical hop in place — pop up then land, with squash on landing.
+  bounceHop(obj3d, { height = 0.25, duration = 0.3, squashOnLand = true } = {}) {
+    const homeY = obj3d.position.y;
+    const steps = [
+      {
+        clip: (() => {
+          const fromY = obj3d.position.y;
+          return new Clip(duration * 0.45, t => {
+            obj3d.position.y = fromY + Math.sin(Easing.quadOut(t) * Math.PI * 0.5) * height;
+          });
+        })()
+      },
+      {
+        clip: (() => {
+          const fromY = obj3d.position.y;
+          return new Clip(duration * 0.55, t => {
+            const e = Easing.cubicIn(t);
+            obj3d.position.y = fromY + (homeY - fromY) * e;
+          }, () => { obj3d.position.y = homeY; });
+        })()
+      }
+    ];
+    if (squashOnLand) steps.push(squashStretchStep(obj3d, 1.15, 0.82, 1.15, 0.1, Easing.quadOut), squashStretchStep(obj3d, 1, 1, 1, 0.16, Easing.backOut));
+    return steps;
+  },
+
+  // Oscillating tilt/rocking on one axis — good for a mischievous idle
+  // flourish or a "settling" wobble after landing.
+  wobble(obj3d, { axis = 'z', amount = 0.12, speed = 8, cycles = 2, duration = 0.5 } = {}) {
+    return {
+      clip: (() => {
+        const from = obj3d.rotation[axis];
+        return new Clip(duration, t => {
+          const decay = 1 - t;
+          obj3d.rotation[axis] = from + Math.sin(t * speed * cycles) * amount * decay;
+        }, () => { obj3d.rotation[axis] = from; });
+      })()
+    };
+  },
+
+  // Fading/pulsing ground-contact shadow blob under a landing/spawning unit.
+  // Expects a mesh (e.g. unit.groundShadow) with a material that has .opacity.
+  groundShadowPulse(shadowMesh, { peakOpacity = 0.5, duration = 0.3 } = {}) {
+    if (!shadowMesh) return callbackStep(() => {});
+    return {
+      clip: (() => {
+        shadowMesh.material.transparent = true;
+        return new Clip(duration, t => {
+          const e = Math.sin(Math.min(1, t) * Math.PI);
+          shadowMesh.material.opacity = peakOpacity * e;
+        });
+      })()
+    };
+  },
+
+  // ---- Impact-moment "plug-in" visuals — fire at the frame gameplay lands ----
+  // Reusable across any character/ability whose flavor matches; not tied to
+  // whoever first needed them (Ajax uses both, but neither is Ajax-specific).
+
+  // Generic fighting-type impact: a boxing-glove shape appears at the hit
+  // point and the hit lands on the same beat.
+  boxingGlove(hitPoint, { color = 0xdd3333, size = 0.32 } = {}) {
+    return callbackStep(() => {
+      const glove = new THREE.Group();
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(size * 0.5, 10, 8), new THREE.MeshToonMaterial({ color, gradientMap: TOON_GRADIENT }));
+      fist.scale.set(1, 0.85, 1);
+      glove.add(fist);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(size * 0.28, size * 0.32, size * 0.35, 8), new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: TOON_GRADIENT }));
+      cuff.position.y = -size * 0.4;
+      glove.add(cuff);
+      glove.position.copy(hitPoint);
+      glove.scale.set(0.3, 0.3, 0.3);
+      scene.add(glove);
+      const start = performance.now();
+      const anim = new Clip(0.22, t => {
+        const e = Easing.backOut(Math.min(1, t / 0.5));
+        const s = Math.min(1, t / 0.5) < 1 ? e : (1 - Easing.quadIn((t - 0.5) / 0.5));
+        glove.scale.set(s, s, s);
+      }, () => { scene.remove(glove); glove.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); });
+      animRunner.activeClips.push(anim);
+    });
+  },
+
+  // Generic monster-bite impact: two jaw shapes spawn over the target, snap
+  // shut on the impact frame, then despawn.
+  biteJaw(hitPoint, { color = 0xffffff, size = 0.3 } = {}) {
+    return callbackStep(() => {
+      const jawMat = new THREE.MeshToonMaterial({ color, gradientMap: TOON_GRADIENT });
+      const upper = new THREE.Mesh(new THREE.ConeGeometry(size * 0.55, size * 0.5, 6), jawMat);
+      const lower = new THREE.Mesh(new THREE.ConeGeometry(size * 0.55, size * 0.5, 6), jawMat.clone());
+      upper.position.copy(hitPoint).add(new THREE.Vector3(0, size * 0.35, 0));
+      lower.position.copy(hitPoint).add(new THREE.Vector3(0, -size * 0.35, 0));
+      upper.rotation.x = Math.PI;
+      scene.add(upper); scene.add(lower);
+      const clip = new Clip(0.2, t => {
+        const close = Easing.cubicIn(Math.min(1, t / 0.6));
+        const openAmt = (1 - close) * size * 0.4;
+        upper.position.y = hitPoint.y + size * 0.35 + openAmt - close * size * 0.1;
+        lower.position.y = hitPoint.y - size * 0.35 - openAmt + close * size * 0.1;
+        if (t > 0.6) {
+          const fade = 1 - (t - 0.6) / 0.4;
+          upper.scale.set(fade, fade, fade);
+          lower.scale.set(fade, fade, fade);
+        }
+      }, () => {
+        scene.remove(upper); scene.remove(lower);
+        upper.geometry.dispose(); lower.geometry.dispose(); jawMat.dispose();
+      });
+      animRunner.activeClips.push(clip);
+    });
+  }
+};
+
+// =============================================================
+// ============ CHARACTER ANIMATION PROFILES ====================
+// =============================================================
+// Per-character table of which MoveLibrary flourishes to layer at which
+// choreography moment, with per-character parameters. A character with no
+// entry here (or no entry for a given moment) just gets the existing
+// generic behavior untouched — this is additive, not a replacement path.
+//
+// Moments used below:
+//   spawn        — one-shot, called when a unit's model first appears
+//   attackImpact(abilityId) — plug-in visual fired at the impact frame of
+//                  runAttackAnimation, keyed by ability id so different
+//                  skills on the same character can pick different moves
+//   windup       — extra flourish layered onto the existing wind-up step
+//   idle         — extra per-frame flourish layered onto updateIdle
+
+const CHARACTER_ANIM_PROFILES = {
+  // Comedic tone: bouncy, springy, "cute" easing throughout.
+  babawibby: {
+    spawn(unit) {
+      return [
+        MoveLibrary.popIn(unit.body, { scale: 1, duration: 0.36, easing: Easing.backOut }),
+        ...MoveLibrary.bounceHop(unit.body, { height: 0.18, duration: 0.26 })
+      ];
+    },
+    windup(unit) {
+      return MoveLibrary.wobble(unit.body, { axis: 'z', amount: 0.1, speed: 10, duration: 0.3 });
+    },
+    idleExtra(unit, t) {
+      // slightly more pronounced bob/sway than the generic idle, comedic wobble
+      unit.body.rotation.z = Math.sin(t * 1.7) * 0.05;
+    }
+  },
+
+  // Strong/impetuous tone: heavier squash/stretch, sharper cubicOut easing,
+  // forceful wind-up/lunge, deliberately less bouncy/cute than Babawibby.
+  ajax: {
+    windup(unit) {
+      return MoveLibrary.squashStretch(unit.body, { intensity: 1.4, duration: 0.24, axis: 'y', easingOut: Easing.cubicOut, easingBack: Easing.cubicOut });
+    },
+    // Keyed by ability id — see handoff.md's confirmed per-ability mapping.
+    attackImpact(unit, target, abilityId) {
+      if (abilityId === 'duel') {
+        // skill1 "Duelo" — generic fighting-type impact
+        return MoveLibrary.boxingGlove(target.hitPoint, { color: 0x3a5a7a, size: 0.34 });
+      }
+      if (abilityId === 'bleedstrike') {
+        // skill2 "Golpe Sangrento" — generic monster-bite impact, jaw shapes
+        // are separate meshes positioned at the target, not Ajax's own head
+        return MoveLibrary.biteJaw(target.hitPoint, { color: 0xeaeaea, size: 0.3 });
+      }
+      return null; // chainstrike/skill3 keeps the existing dash-based visual as-is
+    }
+  }
+};
+
+
+let shakeState = { time: 0, duration: 0, magnitude: 0 };
+function triggerCameraShake(magnitude = 0.18, duration = 0.25) {
+  if (isMobile) magnitude *= 0.7; // gentler on mobile
+  shakeState = { time: 0, duration, magnitude };
+}
+function updateCameraShake(dt) {
+  if (shakeState.time < shakeState.duration) {
+    shakeState.time += dt;
+    const decay = 1 - (shakeState.time / shakeState.duration);
+    const mag = shakeState.magnitude * decay;
+    camera.position.x = camera.baseX + (Math.random() - 0.5) * mag;
+    camera.position.y = camera.baseY + (Math.random() - 0.5) * mag;
+  } else if (camera.baseX !== undefined) {
+    camera.position.x = camera.baseX;
+    camera.position.y = camera.baseY;
+  }
+}
+camera.baseX = camera.position.x;
+camera.baseY = camera.position.y;
+
+// =============================================================
+// ============ IDLE CAMERA ORBIT (planning phase "show off") ===
+// =============================================================
+// While waiting on the player's input (planning phase), slowly orbit
+// the camera around the battlefield, Pokemon-battle-style, so the new
+// per-card models get shown off from a few angles. Snaps back to the
+// exact home framing the instant the round starts resolving.
+//
+// Implemented as spherical coordinates around CAMERA_LOOK_AT, computed
+// from the camera's own home position/target so it stays correct if
+// the home framing (isMobile branch above) ever changes. Camera shake
+// (used during hit impacts, always in the 'resolving' phase) still
+// works on top of this: updateCameraShake offsets from camera.baseX/Y,
+// and camera.baseX/Y are refreshed to the orbit-computed position each
+// frame while orbiting so the two systems don't fight each other.
+
+const cameraHome = (() => {
+  const offset = camera.position.clone().sub(CAMERA_LOOK_AT);
+  const radius = Math.hypot(offset.x, offset.z);
+  return {
+    radius,
+    height: camera.position.y,
+    angle: Math.atan2(offset.z, offset.x) // home azimuth, radians
+  };
+})();
+
+const ORBIT_SPEED = 0.16;      // radians/sec — slow, cinematic sweep
+const ORBIT_SWING = 0.62;      // max radians of azimuth drift off home each direction
+const ORBIT_HEIGHT_SWING = 0.55; // vertical bob while orbiting, in world units
+const ORBIT_SNAP_SECONDS = 0.45; // how fast the camera eases back to home framing on battle start
+
+let orbitEnabled = true;      // planning phase only; toggled by phase transitions below
+let orbitTime = 0;
+let orbitSnapping = false;    // true while easing back to home after battle start
+let orbitSnapT = 0;
+let orbitSnapFrom = null;     // { angle, height } captured at the moment snap-back begins
+
+function setCameraOrbitEnabled(enabled) {
+  if (enabled === orbitEnabled) return;
+  orbitEnabled = enabled;
+  if (!enabled) {
+    // Capture current orbit framing and ease back to home instead of
+    // teleporting, so the transition into battle reads as a deliberate
+    // "snap into position" rather than a jarring pop.
+    orbitSnapping = true;
+    orbitSnapT = 0;
+    orbitSnapFrom = { angle: currentOrbitAngle(), height: camera.position.y };
+  } else {
+    orbitSnapping = false;
+    orbitTime = 0; // restart the sweep fresh each planning phase
+  }
+}
+
+function currentOrbitAngle() {
+  const offset = camera.position.clone().sub(CAMERA_LOOK_AT);
+  return Math.atan2(offset.z, offset.x);
+}
+
+function setCameraFromPolar(angle, height) {
+  camera.position.x = CAMERA_LOOK_AT.x + Math.cos(angle) * cameraHome.radius;
+  camera.position.z = CAMERA_LOOK_AT.z + Math.sin(angle) * cameraHome.radius;
+  camera.position.y = height;
+  camera.lookAt(CAMERA_LOOK_AT);
+  camera.baseX = camera.position.x;
+  camera.baseY = camera.position.y;
+}
+
+function updateCameraOrbit(dt) {
+  if (orbitSnapping) {
+    orbitSnapT = Math.min(1, orbitSnapT + dt / ORBIT_SNAP_SECONDS);
+    const e = 1 - Math.pow(1 - orbitSnapT, 3); // ease-out cubic
+    const angle = orbitSnapFrom.angle + (cameraHome.angle - orbitSnapFrom.angle) * e;
+    const height = orbitSnapFrom.height + (cameraHome.height - orbitSnapFrom.height) * e;
+    setCameraFromPolar(angle, height);
+    if (orbitSnapT >= 1) orbitSnapping = false;
+    return;
+  }
+
+  if (!orbitEnabled) return;
+
+  // Idle orbit sweep disabled — with a 4th (summon) slot now in play, the
+  // fixed-radius sweep around CAMERA_LOOK_AT no longer frames the battlefield
+  // well once a unit is summoned into the back slot. Hold the static home
+  // framing during planning instead of sweeping.
+  setCameraFromPolar(cameraHome.angle, cameraHome.height);
+}
+
+// =============================================================
+// ============ SECTION 4: PARTICLE / EFFECT SYSTEM =============
+// =============================================================
+// Lightweight pooled particle bursts (generalized from Babawibby's
+// dust/impact/speed-streak particles). Kept cheap for mobile GPUs.
+
+const activeParticles = [];
+
+function spawnBurst({ position, color = 0xffffff, count = 10, spread = 0.5, speed = 2.5, size = 0.06, life = 0.5, gravity = -4 }) {
+  if (isMobile) count = Math.ceil(count * 0.6);
+  const geo = new THREE.SphereGeometry(size, 5, 5);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+  for (let i = 0; i < count; i++) {
+    const mesh = new THREE.Mesh(geo, mat.clone());
+    mesh.position.copy(position);
+    scene.add(mesh);
+    const angle = Math.random() * Math.PI * 2;
+    const upBias = Math.random() * 0.6 + 0.2;
+    const vel = new THREE.Vector3(
+      Math.cos(angle) * spread * speed * Math.random(),
+      upBias * speed,
+      Math.sin(angle) * spread * speed * Math.random()
+    );
+    activeParticles.push({ mesh, vel, life, age: 0, gravity });
+  }
+}
+
+function spawnImpactRing(position, color = 0xffffff, size = 0.9) {
+  const geo = new THREE.RingGeometry(0.05, size, 20);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(geo, mat);
+  ring.position.copy(position);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.1;
+  scene.add(ring);
+  activeParticles.push({ mesh: ring, vel: new THREE.Vector3(0,0,0), life: 0.35, age: 0, gravity: 0, isRing: true, ringSize: size });
+}
+
+function spawnProjectileTrail(position, color) {
+  const geo = new THREE.SphereGeometry(0.05, 4, 4);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(position);
+  scene.add(mesh);
+  activeParticles.push({ mesh, vel: new THREE.Vector3(0,0,0), life: 0.3, age: 0, gravity: 0 });
+}
+
+function updateParticles(dt) {
+  for (let i = activeParticles.length - 1; i >= 0; i--) {
+    const p = activeParticles[i];
+    p.age += dt;
+    const t = p.age / p.life;
+    if (t >= 1) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose(); p.mesh.material.dispose();
+      activeParticles.splice(i, 1);
+      continue;
+    }
+    if (p.isRing) {
+      const s = 1 + t * 1.8;
+      p.mesh.scale.set(s, s, s);
+      p.mesh.material.opacity = 0.85 * (1 - t);
+    } else {
+      p.vel.y += p.gravity * dt;
+      p.mesh.position.addScaledVector(p.vel, dt);
+      p.mesh.material.opacity = 1 - t;
+      const sc = 1 - t * 0.5;
+      p.mesh.scale.set(sc, sc, sc);
+    }
+  }
+}
+
+// =============================================================
+// ============ SECTION 5: STYLIZED PRIMITIVE MODELS ============
+// =============================================================
+// Named model components, matching the Babawibby MVP pattern of
+// building characters from labeled primitive parts so animations
+// can target specific named pieces (e.g. "core", "weaponArm").
+
+// ---- Bespoke per-card archetype builders -----------------------------
+// Each takes (bodyGroup, mainMat, accentMat, def) and returns the outline
+// candidates for that build (parts that should get the toon-outline
+// backface pass). They add their own named parts directly to bodyGroup,
+// including a "core" and (optionally) a "weapon" — those two names are
+// read elsewhere (combat-engine pulse/bob animation, attack recoil), so
+// any bespoke build should include a mesh named "core" at minimum.
+// Keep these fully custom (not calling into the shared brute/caster
+// helpers) — that's the point of a bespoke archetype. Register new ones
+// in BESPOKE_BUILDERS below and set `shape: "<key>"` on the unit def.
+
+// r128 has no THREE.CapsuleGeometry (added upstream in r142), so this
+// helper builds a capsule-like shape from a cylinder + two sphere caps
+// combined in a Group. A Group supports .position/.rotation/.scale/.name/
+// .castShadow the same way a Mesh does, so it's a drop-in replacement
+// anywhere the bespoke builders below want a rounded limb/torso.
+function makeCapsule(radius, length, mat) {
+  const group = new THREE.Group();
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 8), mat);
+  cyl.castShadow = true;
+  group.add(cyl);
+  const capTop = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 6), mat);
+  capTop.position.y = length / 2;
+  capTop.castShadow = true;
+  group.add(capTop);
+  const capBottom = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 6), mat);
+  capBottom.position.y = -length / 2;
+  capBottom.castShadow = true;
+  group.add(capBottom);
+  group.castShadow = true;
+  return group;
+}
+
+function buildAjaxModel(bodyGroup, mainMat, accentMat, def) {
+  // Ajax, o Ultra-Humano — remodeled to match the card art: a musclebound
+  // shark-man with a true FLAT/WIDE hammerhead cephalofoil (not a bulbous
+  // stretched egg), defined shoulders/biceps built from separate masses,
+  // and an upright fighting stance. Less "friendly toy", more "action figure".
+  const darkMat = mainMat.clone();
+  darkMat.color.multiplyScalar(0.6);
+
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.44, 0.85, 10), mainMat);
+  torso.scale.set(1.15, 1, 0.82);
+  torso.position.y = 0.95;
+  torso.castShadow = true;
+  torso.name = "torso";
+  bodyGroup.add(torso);
+
+  // pale belly plate for shark-underside readability
+  const bellyPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.7, 10), accentMat);
+  bellyPlate.scale.set(0.9, 1, 0.5);
+  bellyPlate.position.set(0, 0.92, 0.28);
+  bellyPlate.name = "bellyPlate";
+  bodyGroup.add(bellyPlate);
+
+  // separate shoulder masses for a muscular (not rounded-toy) silhouette
+  [-1, 1].forEach(side => {
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), mainMat);
+    shoulder.position.set(side * 0.44, 1.32, 0);
+    shoulder.name = "shoulder_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(shoulder);
+  });
+
+  // TRUE hammerhead: a flat wide cylinder bridge with rounded caps at each
+  // tip, instead of a squashed sphere — reads as an actual cephalofoil
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8), mainMat);
+  head.rotation.z = Math.PI / 2;
+  head.scale.set(1, 1, 2.1);
+  head.position.set(0, 1.68, 0.1);
+  head.castShadow = true;
+  head.name = "head";
+  bodyGroup.add(head);
+  [-1, 1].forEach(side => {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), mainMat);
+    cap.scale.set(1, 1, 2.1);
+    cap.position.set(side * 0.5, 1.68, 0.1);
+    cap.name = "hammerCap_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(cap);
+  });
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.32, 10), mainMat);
+  snout.rotation.x = Math.PI / 2;
+  snout.position.set(0, 1.6, 0.42);
+  snout.name = "snout";
+  bodyGroup.add(snout);
+
+  // eyes at the tips of the hammer
+  [-1, 1].forEach(side => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), darkMat);
+    eye.position.set(side * 0.54, 1.68, 0.22);
+    eye.name = "eye_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(eye);
+  });
+
+  // gill slits
+  for (let i = 0; i < 3; i++) {
+    [-1, 1].forEach(side => {
+      const gill = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.1, 0.02), darkMat);
+      gill.position.set(side * 0.4, 1.15 - i * 0.09, 0.2);
+      gill.rotation.z = side * 0.35;
+      gill.name = "gill_" + i + "_" + (side < 0 ? "L" : "R");
+      bodyGroup.add(gill);
+    });
+  }
+
+  const dorsalFin = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.34, 4), darkMat);
+  dorsalFin.scale.set(0.5, 1, 1);
+  dorsalFin.position.set(0, 1.5, -0.35);
+  dorsalFin.rotation.x = -0.15;
+  dorsalFin.name = "dorsalFin";
+  bodyGroup.add(dorsalFin);
+
+  // two-segment arms (upper + forearm) so biceps read as defined masses
+  [-1, 1].forEach(side => {
+    const upperArm = makeCapsule(0.135, 0.42, mainMat);
+    upperArm.position.set(side * 0.62, 1.12, 0);
+    upperArm.rotation.z = side * 0.18;
+    upperArm.name = "upperArm_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(upperArm);
+    const forearm = makeCapsule(0.1, 0.4, mainMat);
+    forearm.position.set(side * 0.7, 0.68, 0.08);
+    forearm.rotation.z = side * 0.3;
+    forearm.name = (side < 0 ? "armL" : "armR");
+    bodyGroup.add(forearm);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), darkMat);
+    hand.scale.set(0.8, 1, 0.4);
+    hand.position.set(side * 0.76, 0.44, 0.14);
+    hand.name = "hand_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(hand);
+  });
+
+  [-1, 1].forEach(side => {
+    const thigh = makeCapsule(0.16, 0.4, mainMat);
+    thigh.position.set(side * 0.2, 0.42, 0);
+    thigh.castShadow = true;
+    thigh.name = "thigh_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(thigh);
+    const shin = makeCapsule(0.12, 0.36, darkMat);
+    shin.position.set(side * 0.2, 0.08, 0.04);
+    shin.name = "leg_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(shin);
+  });
+
+  const shortsPiece = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.26, 0.28, 10), darkMat);
+  shortsPiece.position.y = 0.62;
+  shortsPiece.name = "shorts";
+  bodyGroup.add(shortsPiece);
+
+  // short broad tail stub hinting at the shark tail without breaking stance
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.4, 6), darkMat);
+  tail.rotation.x = Math.PI * 0.62;
+  tail.position.set(0, 0.55, -0.4);
+  tail.name = "tail";
+  bodyGroup.add(tail);
+
+  const weapon = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), accentMat);
+  weapon.scale.set(0.7, 1.6, 0.7);
+  weapon.position.set(0.76, 0.3, 0.14);
+  weapon.name = "weapon";
+  bodyGroup.add(weapon);
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), accentMat);
+  core.position.set(0, 1.0, 0.4);
+  core.name = "core";
+  bodyGroup.add(core);
+
+  return [torso, head];
+}
+
+function buildYvrelModel(bodyGroup, mainMat, accentMat, def) {
+  // Yvrel, a Luz que se Apagou — remodeled to match the card art: tall,
+  // UPRIGHT, imposing figure (not hunched/frail), symmetric curved horns
+  // sweeping up like a crown, broad armored pauldrons, glowing red eyes,
+  // blue energy wreathing the hands. Reads as a powerful fallen angel
+  // rather than a small stooped wraith.
+  const skinMat = mainMat.clone();
+  skinMat.color.set(0x2a2c38);
+
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 1.0, 10), mainMat);
+  torso.position.y = 1.05;
+  torso.castShadow = true;
+  torso.name = "torso";
+  bodyGroup.add(torso);
+
+  const chestplate = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.5, 10), accentMat);
+  chestplate.position.set(0, 1.2, 0.24);
+  chestplate.scale.set(1, 1, 0.4);
+  chestplate.name = "chestplate";
+  bodyGroup.add(chestplate);
+
+  // broad armored pauldrons for an imposing shoulder line
+  [-1, 1].forEach(side => {
+    const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), accentMat);
+    pauldron.scale.set(1, 0.8, 1);
+    pauldron.position.set(side * 0.46, 1.5, 0);
+    pauldron.name = "pauldron_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(pauldron);
+  });
+
+  // head held HIGH on an upright neck (not sunken into hunched shoulders)
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.16, 8), skinMat);
+  neck.position.y = 1.62;
+  neck.name = "neck";
+  bodyGroup.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), skinMat);
+  head.position.y = 1.82;
+  head.castShadow = true;
+  head.name = "head";
+  bodyGroup.add(head);
+
+  // glowing red eyes
+  [-1, 1].forEach(side => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshToonMaterial({ color: 0xff3020, gradientMap: TOON_GRADIENT, emissive: 0xff3020, emissiveIntensity: 0.6 }));
+    eye.position.set(side * 0.09, 1.83, 0.18);
+    eye.name = "eye_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(eye);
+  });
+
+  // symmetric curved horns sweeping upward — crown-like, matching the art
+  [-1, 1].forEach(side => {
+    const horn = new THREE.Group();
+    const seg1 = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 6), accentMat);
+    seg1.position.y = 0.14;
+    horn.add(seg1);
+    const seg2 = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.22, 6), accentMat);
+    seg2.position.y = 0.36;
+    seg2.rotation.z = side * -0.5;
+    horn.add(seg2);
+    horn.position.set(side * 0.14, 1.98, -0.02);
+    horn.rotation.z = side * 0.35;
+    horn.name = "horn_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(horn);
+  });
+
+  // shorter, regal cloak panels (not tattered/dragging)
+  [-0.22, 0.22].forEach(offset => {
+    const panel = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 4), mainMat);
+    panel.position.set(offset, 0.65, -0.32);
+    panel.rotation.x = Math.PI;
+    panel.name = "cloakPanel_" + (offset < 0 ? "L" : "R");
+    bodyGroup.add(panel);
+  });
+
+  // arms held slightly outward in a casting pose
+  [-1, 1].forEach(side => {
+    const arm = makeCapsule(0.09, 0.55, mainMat);
+    arm.position.set(side * 0.44, 1.15, 0);
+    arm.rotation.z = side * 0.55;
+    arm.name = "arm_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(arm);
+  });
+  // legacy hook name expected by animations/effects code
+  const armL = bodyGroup.getObjectByName("arm_L");
+  if (armL) armL.name = "armL";
+  const armR = bodyGroup.getObjectByName("arm_R");
+  if (armR) armR.name = "armR";
+
+  // hands wreathed in blue energy
+  [-1, 1].forEach(side => {
+    const handGlow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), new THREE.MeshToonMaterial({ color: 0x6fd8ff, gradientMap: TOON_GRADIENT, emissive: 0x6fd8ff, emissiveIntensity: 0.55 }));
+    handGlow.position.set(side * 0.68, 0.86, 0.12);
+    handGlow.name = "handGlow_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(handGlow);
+  });
+
+  [-1, 1].forEach(side => {
+    const leg = makeCapsule(0.12, 0.55, mainMat);
+    leg.position.set(side * 0.16, 0.32, 0);
+    leg.name = "leg_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(leg);
+  });
+
+  const weapon = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), accentMat);
+  weapon.position.set(0.6, 1.05, 0.2);
+  weapon.name = "weapon";
+  bodyGroup.add(weapon);
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), accentMat);
+  core.position.set(0, 1.1, 0.32);
+  core.name = "core";
+  bodyGroup.add(core);
+
+  return [torso, head];
+}
+
+function buildMarianaModel(bodyGroup, mainMat, accentMat, def) {
+  // Mariana, Tocada Pela Luz — remodeled to match the card art: normal
+  // human proportions (not chibi), long wavy hair rendered as multiple
+  // overlapping strand lobes instead of one sphere, a flowing robe with a
+  // gold waist sash. No halo — the art doesn't show one, so it's dropped.
+  const hairMat = mainMat.clone();
+  hairMat.color.set(0x9c2b1e);
+  const skinMat = mainMat.clone();
+  skinMat.color.set(0xe8b89a);
+
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.42, 1.15, 12), mainMat);
+  torso.position.y = 0.85;
+  torso.castShadow = true;
+  torso.name = "torso";
+  bodyGroup.add(torso);
+
+  // gold waist sash
+  const sash = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.045, 8, 20), accentMat);
+  sash.position.y = 0.98;
+  sash.rotation.x = Math.PI / 2;
+  sash.name = "sash";
+  bodyGroup.add(sash);
+
+  const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), accentMat);
+  emblem.position.set(0, 1.25, 0.19);
+  emblem.name = "emblem";
+  bodyGroup.add(emblem);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.1, 8), skinMat);
+  neck.position.y = 1.42;
+  neck.name = "neck";
+  bodyGroup.add(neck);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 14), skinMat);
+  head.position.y = 1.58;
+  head.castShadow = true;
+  head.name = "head";
+  bodyGroup.add(head);
+
+  // long wavy hair — overlapping lobes instead of a single sphere blob
+  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), hairMat);
+  hairTop.scale.set(1.05, 1, 1.05);
+  hairTop.position.y = 1.61;
+  hairTop.name = "hairTop";
+  bodyGroup.add(hairTop);
+  [-1, 0, 1].forEach(i => {
+    const strand = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.7 + Math.abs(i) * 0.15, 6), hairMat);
+    strand.position.set(i * 0.13, 1.15 - Math.abs(i) * 0.08, -0.08);
+    strand.rotation.x = Math.PI;
+    strand.name = "hairStrand_" + (i < 0 ? "L" : i > 0 ? "R" : "C");
+    bodyGroup.add(strand);
+  });
+
+  // wide bell-shaped sleeves instead of thin cylinders
+  [-1, 1].forEach(side => {
+    const sleeve = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.62, 10), mainMat);
+    sleeve.rotation.z = side * 0.55;
+    sleeve.rotation.x = Math.PI;
+    sleeve.position.set(side * 0.34, 0.92, 0);
+    sleeve.name = "sleeve_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(sleeve);
+  });
+  [-1, 1].forEach(side => {
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), skinMat);
+    hand.position.set(side * 0.5, 0.68, 0.05);
+    hand.name = (side < 0 ? "armL" : "armR");
+    bodyGroup.add(hand);
+  });
+
+  // twin floating orbs, one is the named "weapon" for recoil animation
+  const weapon = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), accentMat);
+  weapon.position.set(0.55, 1.1, 0.1);
+  weapon.name = "weapon";
+  bodyGroup.add(weapon);
+
+  const orbTwin = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), accentMat);
+  orbTwin.position.set(-0.52, 1.0, 0.1);
+  orbTwin.name = "orbTwin";
+  bodyGroup.add(orbTwin);
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), accentMat);
+  core.position.set(0, 0.95, 0.24);
+  core.name = "core";
+  bodyGroup.add(core);
+
+  return [torso, head];
+}
+
+function buildBabawibbyModel(bodyGroup, mainMat, accentMat, def) {
+  // Babawibby — remodeled to match the card art: classic stocky goblin
+  // build (not spindly/hunched), a wide toothy grin, and a MUCH bigger
+  // backpack overloaded with scrap/pipes/a lit fuse — the "explosion
+  // waiting to happen" silhouette — plus a clear thumbs-up gesture.
+  const darkMat = mainMat.clone();
+  darkMat.color.multiplyScalar(0.65);
+  const metalMat = mainMat.clone();
+  metalMat.color.set(0x8a8a8a);
+  const rustMat = mainMat.clone();
+  rustMat.color.set(0x9a5a30);
+
+  const torso = makeCapsule(0.24, 0.46, mainMat);
+  torso.position.y = 0.58;
+  torso.castShadow = true;
+  torso.name = "torso";
+  bodyGroup.add(torso);
+
+  const vest = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.4, 10), darkMat);
+  vest.position.y = 0.58;
+  vest.name = "vest";
+  bodyGroup.add(vest);
+
+  const strap = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.02, 6, 16), metalMat);
+  strap.position.y = 0.72;
+  strap.rotation.x = Math.PI / 2.3;
+  strap.name = "strap";
+  bodyGroup.add(strap);
+
+  // big grinning head, classic goblin proportions
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 12), mainMat);
+  head.scale.set(1.05, 0.95, 1);
+  head.position.set(0, 1.08, 0.02);
+  head.castShadow = true;
+  head.name = "head";
+  bodyGroup.add(head);
+
+  // wide open-mouth grin with visible teeth
+  const grin = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshToonMaterial({ color: 0x2a1a10, gradientMap: TOON_GRADIENT }));
+  grin.scale.set(1.3, 0.5, 0.6);
+  grin.position.set(0, 1.0, 0.2);
+  grin.name = "grin";
+  bodyGroup.add(grin);
+  [-1, 1].forEach(side => {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.06, 4), new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: TOON_GRADIENT }));
+    tooth.rotation.x = Math.PI;
+    tooth.position.set(side * 0.05, 1.03, 0.24);
+    tooth.name = "tooth_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(tooth);
+  });
+
+  // long pointed ears swept out to the sides (classic goblin)
+  [-1, 1].forEach(side => {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.4, 5), mainMat);
+    ear.position.set(side * 0.28, 1.1, -0.02);
+    ear.rotation.z = side * Math.PI / 2.4;
+    ear.name = "ear_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(ear);
+  });
+
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), darkMat);
+  nose.position.set(0, 1.06, 0.24);
+  nose.name = "nose";
+  bodyGroup.add(nose);
+
+  [-1, 1].forEach(side => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), new THREE.MeshToonMaterial({ color: 0x0a0a0a, gradientMap: TOON_GRADIENT }));
+    eye.position.set(side * 0.1, 1.14, 0.2);
+    eye.name = "eye_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(eye);
+  });
+
+  // arms — clear thumbs-up gesture on the raised arm, matching the art
+  const armL = makeCapsule(0.075, 0.4, mainMat);
+  armL.position.set(-0.3, 0.62, 0.05);
+  armL.rotation.z = 0.4;
+  armL.name = "armL";
+  bodyGroup.add(armL);
+
+  const armR = makeCapsule(0.075, 0.4, mainMat);
+  armR.position.set(0.28, 0.82, 0.14);
+  armR.rotation.z = -0.95;
+  armR.name = "armR";
+  bodyGroup.add(armR);
+
+  const fist = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), mainMat);
+  fist.position.set(0.38, 1.0, 0.16);
+  fist.name = "fist";
+  bodyGroup.add(fist);
+
+  const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 6), mainMat);
+  thumb.position.set(0.38, 1.08, 0.16);
+  thumb.name = "weapon";
+  bodyGroup.add(thumb);
+
+  [-1, 1].forEach(side => {
+    const leg = makeCapsule(0.09, 0.32, mainMat);
+    leg.position.set(side * 0.13, 0.16, 0);
+    leg.name = "leg_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(leg);
+  });
+  [-1, 1].forEach(side => {
+    const boot = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), darkMat);
+    boot.scale.set(1, 0.7, 1.4);
+    boot.position.set(side * 0.13, 0.03, 0.06);
+    boot.name = "boot_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(boot);
+  });
+
+  // big backpack overloaded with mechanical junk — the "explosion waiting
+  // to happen" silhouette from the art, much bulkier than before
+  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.26), darkMat);
+  backpack.position.set(0, 0.72, -0.32);
+  backpack.castShadow = true;
+  backpack.name = "backpack";
+  bodyGroup.add(backpack);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.06), rustMat);
+  plate.position.set(0, 0.85, -0.46);
+  plate.rotation.x = 0.15;
+  plate.name = "plate";
+  bodyGroup.add(plate);
+
+  // pipes/antennae poking out the top
+  for (let i = 0; i < 3; i++) {
+    const pipe = makeCapsule(0.025, 0.3 + i * 0.08, metalMat);
+    pipe.position.set(-0.1 + i * 0.1, 1.05 + i * 0.03, -0.34);
+    pipe.rotation.z = (i - 1) * 0.3;
+    pipe.name = "pipe_" + i;
+    bodyGroup.add(pipe);
+  }
+  const fuse = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), accentMat);
+  fuse.position.set(0.05, 1.28, -0.32);
+  fuse.name = "fuse";
+  bodyGroup.add(fuse);
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), accentMat);
+  core.position.set(0, 0.68, -0.2);
+  core.name = "core";
+  bodyGroup.add(core);
+
+  return [torso, head, backpack];
+}
+
+function buildMaquinaDeGuerraModel(bodyGroup, mainMat, accentMat, def) {
+  // Máquina de Guerra — rebuilt from scratch to match the card art: a
+  // FOUR-LEGGED mechanical-insect walker (not bipedal), low angular wedge
+  // chassis, no humanoid head/jaw — the "face" is just the angled front
+  // plate — spikes across the top, and a rear cannon barrel.
+  const darkMat = mainMat.clone();
+  darkMat.color.multiplyScalar(0.6);
+  const rustMat = mainMat.clone();
+  rustMat.color.set(0x9a5a30);
+  const metalMat = mainMat.clone();
+  metalMat.color.set(0x6a6a6a);
+  const spikeMat = mainMat.clone();
+  spikeMat.color.set(0xd8d0c0);
+
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.5, 1.3), mainMat);
+  chassis.position.y = 0.62;
+  chassis.castShadow = true;
+  chassis.name = "torso";
+  bodyGroup.add(chassis);
+
+  // angled front plate — the "face" of the machine, no mandible/jaw
+  const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.42, 0.3), darkMat);
+  frontPlate.position.set(0, 0.68, 0.72);
+  frontPlate.rotation.x = -0.3;
+  frontPlate.castShadow = true;
+  frontPlate.name = "head";
+  bodyGroup.add(frontPlate);
+
+  // spikes across the top/front ridge
+  for (let i = 0; i < 5; i++) {
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), spikeMat);
+    spike.position.set(-0.32 + i * 0.16, 0.94, 0.5 - i * 0.08);
+    spike.rotation.x = -0.2;
+    spike.name = "spike_" + i;
+    bodyGroup.add(spike);
+  }
+  [-1, 1].forEach(side => {
+    const hornSpike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.35, 5), spikeMat);
+    hornSpike.position.set(side * 0.3, 1.0, 0.75);
+    hornSpike.rotation.x = -0.35;
+    hornSpike.rotation.z = side * 0.2;
+    hornSpike.name = "hornSpike_" + (side < 0 ? "L" : "R");
+    bodyGroup.add(hornSpike);
+  });
+
+  // rear cannon barrel
+  const weapon = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.5, 8), metalMat);
+  weapon.rotation.x = Math.PI / 2;
+  weapon.position.set(0, 0.7, -0.85);
+  weapon.name = "weapon";
+  bodyGroup.add(weapon);
+
+  // rivets scattered on the chassis
+  for (let i = 0; i < 6; i++) {
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 6), metalMat);
+    bolt.rotation.x = Math.PI / 2;
+    bolt.position.set((i % 2 === 0 ? -1 : 1) * 0.38, 0.5 + (i % 3) * 0.12, -0.4 + i * 0.15);
+    bolt.name = "bolt_" + i;
+    bodyGroup.add(bolt);
+  }
+
+  // FOUR insect-like articulated legs — front pair angled forward, back
+  // pair angled backward, a classic mechanical-spider stance, each built
+  // from two segments meeting at a bent "knee" matching the reference art
+  const legConfigs = [
+    { x: -0.5, z: 0.5, bend: 1, id: "frontL" },
+    { x: 0.5, z: 0.5, bend: 1, id: "frontR" },
+    { x: -0.5, z: -0.5, bend: -1, id: "backL" },
+    { x: 0.5, z: -0.5, bend: -1, id: "backR" }
+  ];
+  legConfigs.forEach(cfg => {
+    const legGroup = new THREE.Group();
+    legGroup.position.set(cfg.x, 0.55, cfg.z);
+    const upper = makeCapsule(0.06, 0.4, darkMat);
+    upper.position.set(0, -0.1, cfg.bend * 0.08);
+    upper.rotation.x = cfg.bend * 0.5;
+    upper.name = "legUpper_" + cfg.id;
+    legGroup.add(upper);
+    const lower = makeCapsule(0.05, 0.42, rustMat);
+    lower.position.set(0, -0.42, cfg.bend * 0.32);
+    lower.rotation.x = cfg.bend * -0.9;
+    lower.name = "legLower_" + cfg.id;
+    legGroup.add(lower);
+    const foot = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 6), metalMat);
+    foot.position.set(0, -0.62, cfg.bend * 0.42);
+    foot.rotation.x = Math.PI + cfg.bend * -0.9;
+    foot.name = "foot_" + cfg.id;
+    legGroup.add(foot);
+    legGroup.name = "leg_" + cfg.id;
+    bodyGroup.add(legGroup);
+  });
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), accentMat);
+  core.position.set(0, 0.65, 0.3);
+  core.name = "core";
+  bodyGroup.add(core);
+
+  return [chassis, frontPlate];
+}
+
+const BESPOKE_BUILDERS = {
+  ajax: buildAjaxModel,
+  yvrel: buildYvrelModel,
+  mariana: buildMarianaModel,
+  babawibby: buildBabawibbyModel,
+  maquina_de_guerra: buildMaquinaDeGuerraModel
+};
+
+function buildUnitModel(def) {
+  const root = new THREE.Group();
+  root.name = def.id + "_root";
+
+  const bodyGroup = new THREE.Group();
+  bodyGroup.name = "body";
+  root.add(bodyGroup);
+
+  const mainMat = new THREE.MeshToonMaterial({ color: def.color, gradientMap: TOON_GRADIENT });
+  const accentMat = new THREE.MeshToonMaterial({ color: def.accentColor, gradientMap: TOON_GRADIENT, emissive: def.accentColor, emissiveIntensity: 0.35 });
+
+  let torso, head, core;
+  let outlineParts = null;
+
+  const bespokeBuilder = BESPOKE_BUILDERS[def.shape];
+  if (bespokeBuilder) {
+    outlineParts = bespokeBuilder(bodyGroup, mainMat, accentMat, def);
+    torso = bodyGroup.getObjectByName("torso");
+    head = bodyGroup.getObjectByName("head");
+    core = bodyGroup.getObjectByName("core");
+  } else if (def.shape === "brute") {
+    torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.6), mainMat);
+    torso.position.y = 0.75;
+    torso.castShadow = true;
+    torso.name = "torso";
+    bodyGroup.add(torso);
+
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mainMat);
+    head.position.y = 1.55;
+    head.castShadow = true;
+    head.name = "head";
+    bodyGroup.add(head);
+
+    // shoulder pads
+    [-1, 1].forEach(side => {
+      const shoulder = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), accentMat);
+      shoulder.position.set(side * 0.55, 1.15, 0);
+      shoulder.name = "shoulder_" + (side < 0 ? "L" : "R");
+      bodyGroup.add(shoulder);
+    });
+
+    // arms (named for animation targeting)
+    const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.75, 8), mainMat);
+    armL.position.set(-0.62, 0.75, 0);
+    armL.name = "armL";
+    armL.castShadow = true;
+    bodyGroup.add(armL);
+
+    const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.75, 8), mainMat);
+    armR.position.set(0.62, 0.75, 0);
+    armR.name = "armR";
+    armR.castShadow = true;
+    bodyGroup.add(armR);
+
+    // weapon (right hand)
+    const weapon = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7, 6), accentMat);
+    weapon.rotation.x = Math.PI;
+    weapon.position.set(0.62, 0.15, 0);
+    weapon.name = "weapon";
+    bodyGroup.add(weapon);
+
+    core = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), accentMat);
+    core.position.set(0, 0.85, 0.32);
+    core.name = "core";
+    bodyGroup.add(core);
+
+  } else { // caster
+    torso = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 8), mainMat);
+    torso.position.y = 0.75;
+    torso.castShadow = true;
+    torso.name = "torso";
+    bodyGroup.add(torso);
+
+    head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), mainMat);
+    head.position.y = 1.55;
+    head.castShadow = true;
+    head.name = "head";
+    bodyGroup.add(head);
+
+    const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8), mainMat);
+    armL.position.set(-0.42, 0.85, 0);
+    armL.rotation.z = 0.5;
+    armL.name = "armL";
+    bodyGroup.add(armL);
+
+    const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8), mainMat);
+    armR.position.set(0.42, 0.85, 0);
+    armR.rotation.z = -0.5;
+    armR.name = "armR";
+    bodyGroup.add(armR);
+
+    // floating orb "weapon"
+    const weapon = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), accentMat);
+    weapon.position.set(0.55, 1.05, 0.15);
+    weapon.name = "weapon";
+    bodyGroup.add(weapon);
+
+    core = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), accentMat);
+    core.position.set(0, 0.95, 0.28);
+    core.name = "core";
+    bodyGroup.add(core);
+
+    // ring collar
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.04, 8, 16), accentMat);
+    collar.position.y = 1.25;
+    collar.rotation.x = Math.PI / 2;
+    collar.name = "collar";
+    bodyGroup.add(collar);
+  }
+
+  // Per-mesh toon outline (from babawibby_zoom_v3.html's addOutline/
+  // makeToonMesh pattern): every individual mesh in the body gets its own
+  // backface-scaled outline CHILD (not a separate top-level clone), so it
+  // inherits that mesh's own transform automatically as parts move/animate.
+  // This replaces the old torso/head-only outline, which left most bespoke
+  // parts (fins, ears, backpack, halo, etc.) with no outline at all.
+  const outlineMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
+  const OUTLINE_SCALE = 1.06;
+  bodyGroup.traverse(o => {
+    if (o.isMesh && !o.userData.isOutline) {
+      const outline = new THREE.Mesh(o.geometry, outlineMat);
+      outline.scale.multiplyScalar(OUTLINE_SCALE);
+      outline.name = (o.name || "part") + "_outline";
+      outline.userData.isOutline = true;
+      o.add(outline);
+    }
+  });
+
+  return { root, bodyGroup, torso, head, core, weapon: bodyGroup.getObjectByName("weapon") };
+}
+
+// =============================================================
+// ============ SECTION 6: THE UNIT CLASS ========================
+// =============================================================
+// A Unit bundles: combat state (hp/shield/alive) + a Three.js model
+// + a per-unit "animations" table {idle, hurt, dead, skill1..3}.
+// Combat engine mutates hp/shield/alive. Animation engine only
+// reads position/model and calls the animations table.
+
+// Index 3 ("summon slot") is only ever used by units created mid-battle via
+// the `summon` effect verb (e.g. Babawibby's Máquina de Guerra) — the normal
+// 3-unit roster (defender/attacker/support at 0/1/2) never occupies it. Kept
+// a bit further back/wide so it doesn't visually crowd the starting trio.
+const SLOT_POSITIONS = {
+  player: [ new THREE.Vector3(-2.6, 0, 3.6), new THREE.Vector3(0, 0, 4.4), new THREE.Vector3(2.6, 0, 3.6), new THREE.Vector3(0, 0, 6.2) ],
+  enemy:  [ new THREE.Vector3(-2.6, 0, -3.6), new THREE.Vector3(0, 0, -4.4), new THREE.Vector3(2.6, 0, -3.6), new THREE.Vector3(0, 0, -6.2) ]
+};
+
+let unitIdCounter = 0;
+
+class Unit {
+  constructor(def, slotIndex) {
+    this.defId = def.id;
+    this.uid = "u" + (unitIdCounter++);
+    this.displayName = def.displayName;
+    this.team = def.team;
+    this.abilities = def.abilities;
+    this.maxHP = def.stats.maxHP;
+    this.hp = def.stats.maxHP;
+    this.shield = 0;
+    this.statuses = [];   // active StatusLib effects (bleed, untargetable, moveLast, ...)
+    this.counters = {};   // named resource counters (e.g. Mariana's "protecao")
+    this.alive = true;
+    this.slotIndex = slotIndex;
+
+    this.homePosition = SLOT_POSITIONS[def.team][slotIndex].clone();
+
+    const modelParts = buildUnitModel(def);
+    this.model = modelParts.root;
+    this.body = modelParts.bodyGroup;
+    this.core = modelParts.core;
+    this.weapon = modelParts.weapon;
+    this.model.position.copy(this.homePosition);
+    // Face inward toward battlefield center
+    this.model.rotation.y = def.team === "player" ? Math.PI : 0;
+
+    scene.add(this.model);
+
+    // Character-specific spawn flourish (e.g. Babawibby's pop-in + hop), if
+    // this character has one. Fire-and-forget: doesn't block unit creation,
+    // and idle takes over normally once it finishes.
+    const spawnProfile = CHARACTER_ANIM_PROFILES[def.id];
+    if (spawnProfile && spawnProfile.spawn) {
+      const steps = spawnProfile.spawn(this);
+      animRunner.playSequence(Array.isArray(steps) ? steps : [steps]);
+    }
+
+    this.idleClock = Math.random() * 10; // desync idle bobbing per unit
+    this.idleActive = true;
+
+    // ---- animations table: idle / hurt / dead / skill1-3 ----
+    this.animations = buildUnitAnimations(this);
+  }
+
+  get position() { return this.model.position; }
+  get hitPoint() { return this.model.position.clone().add(new THREE.Vector3(0, 1, 0)); }
+
+  isValidTarget() { return this.alive; }
+}
+
+// =============================================================
+// ============ MID-BATTLE ROSTER MUTATION (summons) ============
+// =============================================================
+// Generic support for the `summon` / `sacrificeAlly` effect verbs
+// (js/effects.js). Any card can use these — not specific to one unit.
+// Roster arrays (playerUnits/enemyUnits) and the live Three.js scene
+// only exist here in game.html, so this is where the actual mutation
+// has to happen; resolution.js just watches for the markers and calls in.
+
+// Finds the first slot index not currently occupied by a living unit on
+// that team, starting at 3 (index 0-2 are reserved for the starting trio).
+// If every slot 3+ is somehow full (multiple summons), extends further.
+function nextSummonSlot(team) {
+  const roster = team === "player" ? playerUnits : enemyUnits;
+  let idx = 3;
+  while (roster.some(u => u.alive && u.slotIndex === idx)) idx++;
+  // Extend SLOT_POSITIONS on the fly if we ever need slot 4+ (rare: would
+  // require 2+ simultaneous summons on one team), reusing slot 3's position
+  // offset further back so extra summons don't overlap on-screen.
+  if (!SLOT_POSITIONS[team][idx]) {
+    const base = SLOT_POSITIONS[team][3];
+    SLOT_POSITIONS[team][idx] = new THREE.Vector3(base.x + (idx - 3) * 1.4, base.y, base.z + (idx - 3) * 0.6);
+  }
+  return idx;
+}
+
+// Instantiates a UNIT_DEFS entry as a live Unit, adds it to the correct
+// roster array and the scene, and returns it. `summonedBy` and `tag` are
+// stamped onto the new unit so a later `sacrificeAlly` step (optionally
+// filtered by tag) can find it, and so UI/logging can attribute it.
+function summonUnitFor(team, defId, tag, summonedBy) {
+  const def = UNIT_DEFS[defId];
+  if (!def) { console.warn('summonUnitFor: unknown defId', defId); return null; }
+  const slotIndex = nextSummonSlot(team);
+  const unit = new Unit(def, slotIndex);
+  unit.summonTag = tag || defId;
+  unit.summonedBy = summonedBy || null;
+  if (team === "player") playerUnits.push(unit); else enemyUnits.push(unit);
+  addLogLine(`${summonedBy ? summonedBy.displayName + ' invoca ' : ''}${unit.displayName}!`, 'info');
+  refreshAllUnitUI();
+  renderPartyRow();
+  return unit;
+}
+
+// Removes a summoned (or any) unit from its team's roster and scene. Marks
+// it dead/not-alive first so any in-flight targeting/AI logic that filters
+// on `.alive` stops seeing it immediately, then detaches its model next
+// frame (small delay avoids yanking the mesh out mid-animation-callback).
+function removeUnitFromRoster(unit) {
+  if (!unit) return;
+  unit.alive = false;
+  unit.hp = 0;
+  const roster = unit.team === "player" ? playerUnits : enemyUnits;
+  const idx = roster.indexOf(unit);
+  if (idx !== -1) roster.splice(idx, 1);
+  setTimeout(() => { scene.remove(unit.model); }, 50);
+  refreshAllUnitUI();
+  renderPartyRow();
+}
+
+// --- Per-unit animation library ---------------------------------
+// Generalizes the Babawibby "move -> arrive -> event -> effect"
+// chain into reusable idle/hurt/dead/skill routines that operate
+// relative to actor/target positions (Section 10 requirement).
+
+function buildUnitAnimations(unit) {
+  const facing = unit.team === "player" ? -1 : 1; // player units face -Z (toward enemy), enemy face +Z
+
+  return {
+    // ---- IDLE: subtle breathing/bob + core glow pulse ----
+    idle: {
+      // handled per-frame in the render loop (continuous), not a one-shot sequence
+    },
+
+    // ---- HURT: impact squash, recoil, recover ----
+    async hurt(magnitude = 1) {
+      unit.idleActive = false;
+      const knockDir = new THREE.Vector3(0, 0, facing * -0.18 * magnitude);
+      const homeY = unit.body.position.y;
+      await animRunner.playSequence([
+        [
+          squashStretchStep(unit.body, 1.18, 0.8, 1.18, 0.09, Easing.quadOut),
+          callbackStep(() => { unit.body.position.add(knockDir); })
+        ],
+        waitStep(0.05),
+        [
+          squashStretchStep(unit.body, 1, 1, 1, 0.22, Easing.backOut),
+          callbackStep(() => { unit.body.position.z -= knockDir.z; })
+        ]
+      ]);
+      unit.idleActive = true;
+    },
+
+    // ---- DEAD: collapse and fade ----
+    async dead() {
+      unit.idleActive = false;
+      await animRunner.playSequence([
+        [
+          { clip: new Clip(0.35, t => {
+              unit.body.rotation.x = Easing.cubicIn(t) * (Math.PI / 2.1);
+            }) },
+          { clip: new Clip(0.35, t => {
+              unit.body.position.y = 0.0 - Easing.cubicIn(t) * 0.15;
+            }) }
+        ],
+        { clip: new Clip(0.4, t => {
+            unit.body.traverse(o => { if (o.material && o.material.opacity !== undefined) { o.material.transparent = true; o.material.opacity = 1 - t; } });
+          }) }
+      ]);
+      unit.model.visible = false;
+    },
+
+    // ---- SKILL 1: direct melee/bolt attack ----
+    async skill1(target, onImpact, abilityType, abilityId) {
+      await runAttackAnimation(unit, target, { arc: false, color: 0xffffff, onImpact, abilityId });
+    },
+
+    // ---- SKILL 2: support (shield) or secondary attack depending on def ----
+    async skill2(target, onImpact, abilityType, abilityId) {
+      if (abilityType === "shield") {
+        await runSupportAnimation(unit, target, { color: 0xffe27a, onImpact, kind: "shield" });
+      } else if (abilityType === "heal") {
+        await runSupportAnimation(unit, target, { color: 0x7dffb0, onImpact, kind: "heal" });
+      } else {
+        await runAttackAnimation(unit, target, { arc: true, color: 0xffdca8, onImpact, abilityId });
+      }
+    },
+
+    // ---- SKILL 3: heavier attack with bigger wind-up/impact ----
+    async skill3(target, onImpact, abilityType, abilityId) {
+      await runAttackAnimation(unit, target, { arc: true, heavy: true, color: 0xff5a5a, onImpact, abilityId });
+    }
+  };
+}
+
+// Shared "attack" choreography: wind-up -> approach -> attack -> impact event -> return.
+async function runAttackAnimation(actor, target, opts) {
+  const { color = 0xffffff, heavy = false, onImpact, abilityId } = opts;
+  actor.idleActive = false;
+  const startPos = actor.model.position.clone();
+  const dir = new THREE.Vector3().subVectors(target.model.position, actor.model.position).normalize();
+  const approachDist = heavy ? 1.7 : 1.4;
+  const approachPos = new THREE.Vector3().copy(target.model.position).addScaledVector(dir, -0.9 * approachDist / 1.4 - 0.5);
+  // simpler: stop short of target along the line from actor->target
+  const stopShort = new THREE.Vector3().copy(target.model.position).addScaledVector(dir, -1.1);
+
+  const windupScale = heavy ? 1.22 : 1.1;
+  const profile = CHARACTER_ANIM_PROFILES[actor.defId];
+
+  await animRunner.playSequence([
+    // Wind-up
+    squashStretchStep(actor.body, windupScale, 0.9, windupScale, heavy ? 0.22 : 0.14, Easing.quadOut),
+    // Character-specific wind-up flourish layered on top, if this character has one
+    ...(profile && profile.windup ? [profile.windup(actor)] : []),
+    // Move toward target (relative targeting - uses live positions, not hard-coded coords)
+    moveStep(actor.model, stopShort, heavy ? 0.32 : 0.24, Easing.cubicOut),
+    // ATTACK EVENT: lunge + weapon swing
+    [
+      squashStretchStep(actor.body, 0.85, 1.15, 0.85, 0.09, Easing.quadOut),
+      callbackStep(() => {
+        if (actor.weapon) actor.weapon.rotation.x -= heavy ? 2.4 : 1.6;
+      })
+    ],
+    // IMPACT EVENT — this is where gameplay effect fires, synced to the visual hit
+    callbackStep(() => {
+      spawnImpactRing(target.hitPoint, color, heavy ? 1.3 : 0.9);
+      spawnBurst({ position: target.hitPoint, color, count: heavy ? 16 : 10, speed: heavy ? 3.2 : 2.4 });
+      triggerCameraShake(heavy ? 0.22 : 0.1, heavy ? 0.28 : 0.16);
+      if (onImpact) onImpact(); // <-- gameplay damage applied here, not on button press
+    }),
+    // Character+ability-specific impact plug-in visual (e.g. Ajax's boxing
+    // glove / bite jaw), if this character/ability combination has one
+    ...(() => {
+      if (!profile || !profile.attackImpact) return [];
+      const step = profile.attackImpact(actor, target, abilityId);
+      return step ? [step] : [];
+    })(),
+    // Recovery + return home
+    [
+      squashStretchStep(actor.body, 1, 1, 1, 0.18, Easing.backOut),
+      callbackStep(() => { if (actor.weapon) actor.weapon.rotation.x = 0; })
+    ],
+    moveStep(actor.model, startPos, heavy ? 0.3 : 0.22, Easing.cubicOut)
+  ]);
+  actor.idleActive = true;
+}
+
+// Shared "support" choreography for heal/shield: caster raises hands, projectile/beam travels, effect lands on ally.
+async function runSupportAnimation(actor, target, opts) {
+  const { color, onImpact, kind } = opts;
+  actor.idleActive = false;
+  await animRunner.playSequence([
+    squashStretchStep(actor.body, 1.12, 1.08, 1.12, 0.18, Easing.quadOut),
+    callbackStep(() => {
+      spawnBurst({ position: actor.hitPoint, color, count: 6, speed: 1.2, spread: 0.3 });
+    }),
+    waitStep(0.12),
+    callbackStep(() => {
+      // traveling effect line rendered as a quick burst along the path
+      const mid = new THREE.Vector3().addVectors(actor.hitPoint, target.hitPoint).multiplyScalar(0.5);
+      spawnProjectileTrail(mid, color);
+    }),
+    waitStep(0.14),
+    // Effect lands
+    callbackStep(() => {
+      spawnImpactRing(target.hitPoint, color, kind === "shield" ? 1.1 : 0.85);
+      spawnBurst({ position: target.hitPoint, color, count: 14, speed: 2, gravity: kind === "heal" ? -1 : -3 });
+      if (onImpact) onImpact();
+    }),
+    [
+      squashStretchStep(actor.body, 1, 1, 1, 0.2, Easing.backOut),
+      squashStretchStep(target.body, kind === "shield" ? 1.1 : 1.08, kind === "shield" ? 1.1 : 1.12, kind === "shield" ? 1.1 : 1.08, 0.16, Easing.backOut)
+    ],
+    waitStep(0.08),
+    scaleStep(target.body, 1, 0.18, Easing.quadOut)
+  ]);
+  actor.idleActive = true;
+}
+
+// =============================================================
+// ============ SECTION 7: COMBAT ENGINE =========================
+// =============================================================
+// Pure gameplay logic. Knows nothing about Three.js, animations,
+// particles, or rendering. Produces "combat results" that the
+// orchestrator (Section 9) hands to the animation engine.
+
+// CombatEngine now loaded from js/combat-engine.js (effect-pipeline based)
+
+// =============================================================
+// ============ SECTION 8: SIMPLE AI ==============================
+// =============================================================
+// Uses the exact same CombatEngine + AnimationEngine pipeline as
+// the player. The AI only decides WHO/WHAT/WHOM, then submits an
+// action through submitAction(), same as clicking buttons does.
+
+const AI = {
+  // Legacy whole-team decision (kept for reference/compatibility) — picks one actor+ability+target.
+  decide(aiUnits, enemyUnits) {
+    const livingActors = aiUnits.filter(u => u.alive);
+    if (livingActors.length === 0) return null;
+    for (const actor of livingActors) {
+      const d = this.decideForActor(actor, aiUnits, enemyUnits);
+      if (d) return d;
+    }
+    return null;
+  },
+
+  // Speed-based combat plans every actor individually, since all actions
+  // for both sides are committed up front before any of them resolve.
+  // This is the version used by the resolution phase (Section 10).
+  decideForActor(actor, aiUnits, enemyUnits) {
+    if (!actor.alive) return null;
+    const livingTargets = enemyUnits.filter(u => u.alive);
+    if (livingTargets.length === 0) return null;
+
+    const damagedAllies = aiUnits.filter(u => u.alive && u.hp < u.maxHP * 0.6);
+    const candidates = [];
+
+    for (const ability of actor.abilities) {
+      const flavor = primaryEffectType(ability);
+      const dmgStep = ability.effects.find(e => e.verb === 'damage' && (e.target === 'target' || !e.target));
+      const abilityPower = dmgStep ? (typeof dmgStep.amount === 'function' ? 0 : dmgStep.amount) : 0;
+
+      if (flavor === "heal" && damagedAllies.length > 0) {
+        const healTarget = damagedAllies.reduce((a, b) => (a.hp / a.maxHP) < (b.hp / b.maxHP) ? a : b);
+        candidates.push({ actor, ability, target: healTarget, weight: 3 });
+      } else if (flavor === "shield") {
+        const unshielded = aiUnits.filter(u => u.alive && u.shield < 5);
+        if (unshielded.length > 0) {
+          const shieldTarget = unshielded[Math.floor(Math.random() * unshielded.length)];
+          candidates.push({ actor, ability, target: shieldTarget, weight: 1.5 });
+        }
+      } else if (flavor === "attack") {
+        for (const target of livingTargets) {
+          let weight = 1;
+          if (abilityPower > 0 && target.hp <= abilityPower) weight += 2.5; // can score a kill
+          if (target.hp / target.maxHP < 0.35) weight += 1.5;
+          candidates.push({ actor, ability, target, weight });
+        }
+      } else {
+        // Any other flavor (e.g. a pure utility ability): just try it on a random enemy so it isn't dead weight.
+        candidates.push({ actor, ability, target: livingTargets[Math.floor(Math.random() * livingTargets.length)], weight: 0.5 });
+      }
+    }
+
+    if (candidates.length === 0) {
+      // Fall back to any attack-flavored ability against a random living target
+      const atk = actor.abilities.find(a => primaryEffectType(a) === 'attack');
+      if (atk) return { actor, ability: atk, target: livingTargets[Math.floor(Math.random() * livingTargets.length)] };
+      return null;
+    }
+
+    const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
+    let r = Math.random() * totalWeight;
+    for (const c of candidates) {
+      r -= c.weight;
+      if (r <= 0) return c;
+    }
+    return candidates[candidates.length - 1];
+  }
+};
+
+// =============================================================
+// ============ SECTION 9: ANIMATION ENGINE (ORCHESTRATOR) ======
+// =============================================================
+// This is the bridge: combat.resolve() -> animation plays ->
+// impact event fires -> combat.apply() -> UI updates -> hurt/dead.
+// Same function is called for BOTH player actions and AI actions.
+
+const AnimationEngine = {
+  async play({ actor, ability, target, playerUnits, enemyUnits, round, echo, secondTarget }) {
+    const result = CombatEngine.resolve(actor, ability, target, { playerUnits, enemyUnits, round, echoChoice: echo || null, secondTarget: secondTarget || null });
+
+    const applyAndReact = async () => {
+      CombatEngine.apply(result);
+      renderFloatingNumbers(result);
+      refreshAllUnitUI();
+      logResult(result);
+
+      // Multi-effect abilities (e.g. Ajax's Duelo hits both sides, Corrente
+      // Fatal can hit 2-3 times) trigger a hurt/dead reaction on EVERY
+      // unit that actually took damage this action, not just `target`.
+      const damageHits = (result.applied || []).filter(a => a.verb === 'damage' && a.actualDamage > 0);
+      const reactedUnits = new Set();
+      for (const hit of damageHits) {
+        const victim = hit.target;
+        if (!victim || reactedUnits.has(victim)) continue;
+        reactedUnits.add(victim);
+        if (hit.killed) {
+          await victim.animations.hurt(1.4);
+          await victim.animations.dead();
+        } else {
+          await victim.animations.hurt(hit.actualDamage >= 9 ? 1.3 : 0.9);
+        }
+      }
+    };
+
+    const animKey = ability.animKey || "skill1";
+    if (animKey === "skill2") {
+      await actor.animations.skill2(target, applyAndReact, primaryEffectType(ability), ability.id);
+    } else if (animKey === "skill3") {
+      await actor.animations.skill3(target, applyAndReact, primaryEffectType(ability), ability.id);
+    } else {
+      await actor.animations.skill1(target, applyAndReact, primaryEffectType(ability), ability.id);
+    }
+
+    return result;
+  }
+};
+
+function renderFloatingNumbers(result) {
+  // Walks every applied effect (not just a single "primary" one) so multi-hit
+  // abilities (Ajax's Duelo/Corrente Fatal) and multi-verb abilities (damage +
+  // status, gainCounter, etc.) all get appropriate floating text.
+  for (const a of (result.applied || [])) {
+    if (!a.target) continue;
+    const screenPos = worldToScreen(a.target.hitPoint);
+    if (a.verb === 'damage' && a.actualDamage > 0) {
+      spawnFloatText(screenPos, "-" + a.actualDamage, "dmg");
+      if (a.absorbedByShield) {
+        spawnFloatText({ x: screenPos.x, y: screenPos.y - 16 }, "🛡" + a.absorbedByShield, "shield");
+      }
+    } else if (a.verb === 'heal' && a.actualHeal > 0) {
+      spawnFloatText(screenPos, "+" + a.actualHeal, "heal");
+    } else if (a.verb === 'shield') {
+      spawnFloatText(screenPos, "+" + a.amount + " 🛡", "shield");
+    } else if (a.verb === 'gainCounter') {
+      spawnFloatText(screenPos, "+" + a.amount + " ✦", "shield");
+    } else if (a.verb === 'applyStatus') {
+      spawnFloatText(screenPos, a.status.name, "shield");
+    }
+  }
+}
+
+function spawnFloatText(screenPos, text, cls) {
+  const el = document.createElement('div');
+  el.className = 'float-text ' + cls;
+  el.style.left = screenPos.x + 'px';
+  el.style.top = screenPos.y + 'px';
+  el.textContent = text;
+  document.getElementById('label-layer').appendChild(el);
+  setTimeout(() => el.remove(), 1150);
+}
+
+function logResult(result) {
+  const a = result.actor.displayName, ab = result.ability.name;
+  addLogLine(`${a} uses ${ab}`, 'info');
+  for (const eff of (result.applied || [])) {
+    const t = eff.target ? eff.target.displayName : '?';
+    if (eff.verb === 'damage' && eff.actualDamage > 0) {
+      let msg = `  → ${t} takes ${eff.actualDamage} dmg`;
+      if (eff.absorbedByShield) msg += ` (${eff.absorbedByShield} blocked)`;
+      if (eff.killed) msg += ` — defeated!`;
+      addLogLine(msg, 'hit');
+    } else if (eff.verb === 'heal' && eff.actualHeal > 0) {
+      addLogLine(`  → ${t} healed for ${eff.actualHeal}`, 'heal');
+    } else if (eff.verb === 'shield') {
+      addLogLine(`  → ${t} shielded for ${eff.amount}`, 'heal');
+    } else if (eff.verb === 'applyStatus') {
+      addLogLine(`  → ${t} gains ${eff.status.name}`, 'info');
+    } else if (eff.verb === 'gainCounter') {
+      addLogLine(`  → ${t} gains ${eff.amount} ${eff.counter} (${eff.newTotal} total)`, 'info');
+    } else if (eff.verb === 'spendCounters') {
+      addLogLine(`  → ${t} spends ${eff.spent} ${eff.counter}`, 'info');
+    } else if (eff.verb === 'note') {
+      addLogLine(`  → ${eff.text}`, 'info');
+    }
+  }
+}
+
+// =============================================================
+// ============ SECTION 10: GAME STATE & FLOW ORCHESTRATION =====
+// =============================================================
+
+let playerUnits = [];
+let enemyUnits = [];
+let selectedUnit = null;      // which of MY units is currently being assigned an ability (planning phase)
+let selectedAbility = null;   // ability chosen for selectedUnit, awaiting a target
+let inputLocked = false;      // true while resolution phase is animating
+let gameOver = false;
+let phase = 'planning';       // 'planning' | 'resolving'
+
+// Round plan: one entry per living player unit, filled in as the player assigns abilities.
+// Each entry: { actor, ability, target, echo? }
+// `echo` (optional): { ability, target } — the player's chosen secondary
+// ability+target for abilities flagged `promptsEcho: true` (e.g. Yvrel's
+// Golpe Eco). Consumed by the useAbilityOn effect step via ctx.echoChoice.
+let playerPlan = [];
+
+// Echo sub-selection state: active while the player is choosing the SECOND
+// ability+target for a `promptsEcho` ability, after the primary target is
+// already picked. null when not in this sub-flow.
+// Shape: { actor, primaryAbility, primaryTarget, chosenEchoAbility }
+let echoSubMode = null;
+
+// Simpler two-step targeting for abilities that need a second target of a
+// FIXED type (no ability re-choice involved) — e.g. Babawibby's "Destrua
+// uma Máquina de Guerra": pick the ally (machine) to sacrifice, then pick
+// the enemy who takes the resulting damage. Shape while active:
+// { actor, ability, primaryTarget, secondTargetType }
+// null when not in this sub-flow.
+let secondTargetMode = null;
+
+const labelLayer = document.getElementById('label-layer');
+const partyRow = document.getElementById('party-row');
+const abilityRow = document.getElementById('ability-row');
+const statusLine = document.getElementById('status-line');
+const turnIndicator = document.getElementById('turn-indicator');
+const logPanel = document.getElementById('log-panel');
+const logToggle = document.getElementById('log-toggle');
+const overlay = document.getElementById('overlay');
+
+function initGame(chosenPlayerOrder) {
+  // Clear existing
+  [...playerUnits, ...enemyUnits].forEach(u => scene.remove(u.model));
+  const order = chosenPlayerOrder || PLAYER_ORDER;
+  playerUnits = order.map((id, i) => new Unit(UNIT_DEFS[id], i));
+  enemyUnits = ENEMY_ORDER.map((id, i) => new Unit(UNIT_DEFS[id], i));
+  selectedUnit = null;
+  selectedAbility = null;
+  echoSubMode = null;
+  inputLocked = false;
+  gameOver = false;
+  phase = 'planning';
+  setCameraOrbitEnabled(true);
+  playerPlan = [];
+  logPanel.innerHTML = '';
+  overlay.classList.remove('show');
+  setTurnIndicator('planning');
+  buildLabelLayer();
+  renderPartyRow();
+  renderAbilityRow();
+  updateStatus("Choose an ability for each of your units");
+}
+
+function setTurnIndicator(who) {
+  if (who === 'planning') { turnIndicator.textContent = 'PLAN YOUR TURN'; turnIndicator.className = 'player-turn'; }
+  else if (who === 'resolving') { turnIndicator.textContent = 'RESOLVING…'; turnIndicator.className = 'enemy-turn'; }
+}
+
+// =============================================================
+// ============ PRE-GAME TEAM SELECT ==============================
+// =============================================================
+// Lets the player pick exactly one card per role (defender/attacker/
+// support) before the battle starts, instead of always fielding the
+// hardcoded PLAYER_ORDER trio. Draws candidates from every UNIT_DEFS
+// entry with team:"player" — EXCEPT summon-only units (units that are
+// only ever created mid-battle via the `summon` effect verb, like
+// Máquina de Guerra) which aren't meant to be drafted as a starting card.
+const SUMMON_ONLY_UNIT_IDS = new Set(["maquina_de_guerra"]);
+const ROLE_ORDER = ["defender", "attacker", "support"];
+
+function playerDraftPool() {
+  const pool = { defender: [], attacker: [], support: [] };
+  for (const def of Object.values(UNIT_DEFS)) {
+    if (def.team !== "player") continue;
+    if (SUMMON_ONLY_UNIT_IDS.has(def.id)) continue;
+    if (pool[def.role]) pool[def.role].push(def);
+  }
+  return pool;
+}
+
+let draftPicks = {}; // role -> defId
+
+function openTeamSelect() {
+  draftPicks = {};
+  const pool = playerDraftPool();
+  const groupsEl = document.getElementById('team-select-groups');
+  groupsEl.innerHTML = '';
+
+  ROLE_ORDER.forEach(role => {
+    const group = document.createElement('div');
+    group.className = 'ts-role-group';
+    const label = document.createElement('div');
+    label.className = 'ts-role-label';
+    label.textContent = role;
+    group.appendChild(label);
+
+    const cardsWrap = document.createElement('div');
+    cardsWrap.className = 'ts-cards';
+    (pool[role] || []).forEach(def => {
+      const card = document.createElement('div');
+      card.className = 'ts-card';
+      card.innerHTML = `<div class="ts-name">${def.displayName}</div><div class="ts-hp">HP ${def.stats.maxHP}</div>`;
+      card.addEventListener('click', () => {
+        draftPicks[role] = def.id;
+        cardsWrap.querySelectorAll('.ts-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        refreshTeamSelectConfirm();
+      });
+      cardsWrap.appendChild(card);
+    });
+    group.appendChild(cardsWrap);
+    groupsEl.appendChild(group);
+  });
+
+  refreshTeamSelectConfirm();
+  document.getElementById('team-select').classList.add('show');
+}
+
+function refreshTeamSelectConfirm() {
+  const ready = ROLE_ORDER.every(role => draftPicks[role]);
+  document.getElementById('team-select-confirm').classList.toggle('ready', ready);
+}
+
+document.getElementById('team-select-confirm').addEventListener('click', () => {
+  if (!ROLE_ORDER.every(role => draftPicks[role])) return;
+  const chosenOrder = ROLE_ORDER.map(role => draftPicks[role]); // [defender, attacker, support] slot order
+  lastChosenPlayerOrder = chosenOrder;
+  document.getElementById('team-select').classList.remove('show');
+  initGame(chosenOrder);
+});
+
+function updateStatus(text) { statusLine.textContent = text; }
+
+function addLogLine(msg, cls) {
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = msg;
+  logPanel.appendChild(div);
+  logPanel.scrollTop = logPanel.scrollHeight;
+}
+
+logToggle.addEventListener('click', () => {
+  logPanel.classList.toggle('open');
+  logToggle.textContent = logPanel.classList.contains('open') ? 'Log ▴' : 'Log ▾';
+});
+
+// --- Label layer: name/hp/shield tags + selection rings + target rings ---
+function buildLabelLayer() {
+  labelLayer.innerHTML = '';
+  [...playerUnits, ...enemyUnits].forEach(u => {
+    const label = document.createElement('div');
+    label.className = 'unit-label';
+    label.id = 'label_' + u.uid;
+    label.innerHTML = `
+      <div class="name">${u.displayName}</div>
+      <div class="hp-bar-bg"><div class="hp-bar-fill ${u.team}" style="width:100%"></div></div>
+      <div class="hp-text">${u.hp}/${u.maxHP}</div>
+      <div class="shield-pip" style="display:none;"></div>
+      <div class="status-row"></div>
+    `;
+    labelLayer.appendChild(label);
+  });
+}
+
+function worldToScreen(worldPos) {
+  const v = worldPos.clone().project(camera);
+  const rect = canvasWrap.getBoundingClientRect();
+  return {
+    x: (v.x * 0.5 + 0.5) * rect.width,
+    y: (-(v.y * 0.5) + 0.5) * rect.height
+  };
+}
+
+function updateLabelPositions() {
+  [...playerUnits, ...enemyUnits].forEach(u => {
+    const label = document.getElementById('label_' + u.uid);
+    if (!label) return;
+    if (!u.alive) { label.style.opacity = '0'; return; }
+    label.style.opacity = '1';
+    const screenPos = worldToScreen(u.model.position.clone().add(new THREE.Vector3(0, 1.9, 0)));
+    label.style.left = screenPos.x + 'px';
+    label.style.top = screenPos.y + 'px';
+  });
+}
+
+// Persistent status/counter display under each unit's HP bar. Reads
+// generically off u.statuses (array of StatusLib objects: {id, name, kind,
+// data}) and u.counters (plain { counterId: value } map) — no hardcoding
+// of "bleed" or "protecao" specifically, so any new status/counter a
+// future card introduces shows up automatically.
+function renderStatusRow(label, u) {
+  const row = label.querySelector('.status-row');
+  if (!row) return;
+  row.innerHTML = '';
+
+  (u.statuses || []).forEach(s => {
+    const pip = document.createElement('div');
+    pip.className = 'status-pip status-kind-' + (s.kind || 'other');
+    let text = s.name || s.id;
+    // Show a small hint of the status's payload when it's a per-tick
+    // number (e.g. bleed's damagePerTick), so it's not just a bare label.
+    if (s.data && typeof s.data.damagePerTick === 'number') {
+      text += ' ' + s.data.damagePerTick;
+    }
+    pip.textContent = text;
+    row.appendChild(pip);
+  });
+
+  Object.entries(u.counters || {}).forEach(([counterId, value]) => {
+    if (!value) return; // skip zeroed-out counters
+    const pip = document.createElement('div');
+    pip.className = 'status-pip counter-pip';
+    const label_ = counterId.charAt(0).toUpperCase() + counterId.slice(1);
+    pip.textContent = label_ + ': ' + value;
+    row.appendChild(pip);
+  });
+}
+
+function refreshAllUnitUI() {
+  [...playerUnits, ...enemyUnits].forEach(u => {
+    const label = document.getElementById('label_' + u.uid);
+    if (label) {
+      const pct = Math.max(0, (u.hp / u.maxHP) * 100);
+      label.querySelector('.hp-bar-fill').style.width = pct + '%';
+      label.querySelector('.hp-text').textContent = `${u.hp}/${u.maxHP}`;
+      const shieldEl = label.querySelector('.shield-pip');
+      if (u.shield > 0) { shieldEl.style.display = 'block'; shieldEl.textContent = '🛡' + u.shield; }
+      else { shieldEl.style.display = 'none'; }
+      if (!u.alive) label.classList.add('dead'); else label.classList.remove('dead');
+      renderStatusRow(label, u);
+    }
+  });
+  renderPartyRow();
+  renderAbilityRow();
+  renderTargetRings();
+}
+
+// --- Helpers for the planning queue ---
+function planEntryFor(unit) { return playerPlan.find(p => p.actor === unit); }
+function livingPlayerUnits() { return playerUnits.filter(u => u.alive); }
+function allPlanned() { return livingPlayerUnits().every(u => planEntryFor(u)); }
+
+// --- Bottom party row (unit selector during planning) ---
+function renderPartyRow() {
+  partyRow.innerHTML = '';
+  playerUnits.forEach(u => {
+    const card = document.createElement('div');
+    const planned = planEntryFor(u);
+    card.className = 'party-card'
+      + (u === selectedUnit || (echoSubMode && u === echoSubMode.actor) || (secondTargetMode && u === secondTargetMode.actor) ? ' selected' : '')
+      + (!u.alive ? ' dead' : '')
+      + (planned && phase === 'planning' ? ' queued' : '');
+    const pct = Math.max(0, (u.hp / u.maxHP) * 100);
+    const queuedLine = planned ? `<div class="pc-hptext" style="color:#7dffb0;">✓ ${planned.ability.name}</div>` : '';
+    card.innerHTML = `
+      <div class="pc-name">${u.displayName}</div>
+      <div class="pc-hpwrap"><div class="pc-hpfill" style="width:${pct}%"></div></div>
+      <div class="pc-hptext">${u.hp}/${u.maxHP}${u.shield > 0 ? ' 🛡' + u.shield : ''}</div>
+      ${queuedLine}
+    `;
+    if (u.alive && phase === 'planning' && !gameOver) {
+      card.addEventListener('click', () => selectUnit(u));
+    }
+    partyRow.appendChild(card);
+  });
+
+  // "Fight!" trigger card, shown once every living unit has a queued action
+  if (phase === 'planning' && !gameOver && livingPlayerUnits().length > 0 && allPlanned()) {
+    const fightCard = document.createElement('div');
+    fightCard.className = 'party-card';
+    fightCard.style.borderColor = '#7dffb0';
+    fightCard.style.background = 'rgba(125,255,176,0.14)';
+    fightCard.innerHTML = `<div class="pc-name" style="color:#7dffb0;">⚔ FIGHT!</div>`;
+    fightCard.addEventListener('click', beginResolutionPhase);
+    partyRow.appendChild(fightCard);
+  }
+}
+
+function selectUnit(u) {
+  if (phase !== 'planning' || gameOver || !u.alive) return;
+  cancelEchoSubMode();
+  selectedUnit = u;
+  selectedAbility = null;
+  const existing = planEntryFor(u);
+  updateStatus(existing ? `${u.displayName} — currently set to ${existing.ability.name}. Pick again to change.` : `${u.displayName} selected — choose an ability`);
+  renderPartyRow();
+  renderAbilityRow();
+  renderTargetRings();
+}
+
+// --- Ability row ---
+function renderAbilityRow() {
+  abilityRow.innerHTML = '';
+
+  // Second-target sub-flow: ability + primary target already chosen, now
+  // just waiting on the second (fixed-type) target — show it locked, same
+  // treatment as the echo "ability already chosen" state above.
+  if (secondTargetMode) {
+    const ability = secondTargetMode.ability;
+    const btn = document.createElement('div');
+    btn.className = 'ability-btn queued';
+    btn.style.borderColor = '#fff';
+    btn.innerHTML = `<div>${ability.name} <span class="ab-speed">⚡${ability.speed}</span></div><div class="ab-desc">${ability.desc}</div>`;
+    abilityRow.appendChild(btn);
+    for (let i = 0; i < 2; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'ability-btn empty';
+      abilityRow.appendChild(empty);
+    }
+    return;
+  }
+
+  // Echo sub-flow: showing the actor's OTHER abilities so the player can
+  // pick which one to echo (excludes echostrike itself and whatever
+  // ability the actor last used, same exclusion rule the old random-pick
+  // logic used).
+  if (echoSubMode && !echoSubMode.chosenEchoAbility) {
+    const actor = echoSubMode.actor;
+    const last = CombatEngine.lastAbilityId(actor);
+    const eligible = actor.abilities.filter(a => a.id !== echoSubMode.primaryAbility.id && a.id !== last);
+    if (eligible.length === 0) {
+      // No valid ability to echo (shouldn't normally happen with a 3-ability
+      // kit, but guard anyway) — fizzle the echo and finalize as a plain action.
+      playerPlan = playerPlan.filter(p => p.actor !== actor);
+      playerPlan.push({ actor, ability: echoSubMode.primaryAbility, target: echoSubMode.primaryTarget });
+      updateStatus(`${actor.displayName} has no other ability to echo right now — Golpe Eco queued without an echo.`);
+      echoSubMode = null;
+      renderPartyRow(); renderAbilityRow(); renderTargetRings();
+      return;
+    }
+    eligible.forEach(ability => {
+      const btn = document.createElement('div');
+      btn.className = 'ability-btn';
+      btn.innerHTML = `<div>${ability.name} <span class="ab-speed">⚡${ability.speed}</span></div><div class="ab-desc">${ability.desc}</div>`;
+      btn.addEventListener('click', () => selectEchoAbility(ability));
+      abilityRow.appendChild(btn);
+    });
+    return;
+  }
+
+  // Echo sub-flow: ability already chosen, now just waiting on a target —
+  // show it highlighted/locked so the player can see what they picked.
+  if (echoSubMode && echoSubMode.chosenEchoAbility) {
+    const ability = echoSubMode.chosenEchoAbility;
+    const btn = document.createElement('div');
+    btn.className = 'ability-btn queued';
+    btn.style.borderColor = '#fff';
+    btn.innerHTML = `<div>${ability.name} <span class="ab-speed">⚡${ability.speed}</span></div><div class="ab-desc">${ability.desc}</div>`;
+    abilityRow.appendChild(btn);
+    for (let i = 0; i < 2; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'ability-btn empty';
+      abilityRow.appendChild(empty);
+    }
+    return;
+  }
+
+  if (!selectedUnit) {
+    for (let i = 0; i < 3; i++) {
+      const btn = document.createElement('div');
+      btn.className = 'ability-btn empty';
+      abilityRow.appendChild(btn);
+    }
+    return;
+  }
+  const existing = planEntryFor(selectedUnit);
+  selectedUnit.abilities.forEach(ability => {
+    const btn = document.createElement('div');
+    const isQueued = existing && existing.ability === ability;
+    btn.className = 'ability-btn'
+      + (ability === selectedAbility ? '' : '')
+      + (phase !== 'planning' ? ' disabled' : '')
+      + (isQueued ? ' queued' : '');
+    btn.innerHTML = `<div>${ability.name} <span class="ab-speed">⚡${ability.speed}</span></div><div class="ab-desc">${ability.desc}</div>`;
+    if (phase === 'planning') {
+      btn.addEventListener('click', () => selectAbility(ability));
+      if (ability === selectedAbility) btn.style.borderColor = '#fff';
+    }
+    abilityRow.appendChild(btn);
+  });
+}
+
+function selectAbility(ability) {
+  if (phase !== 'planning' || gameOver) return;
+  selectedAbility = ability;
+  const targetType = ability.targetType || 'enemy';
+
+  if (targetType === 'self') {
+    // No target prompt needed — the ability always acts on its own caster
+    // (e.g. Babawibby's "Crie uma Máquina de Guerra"). Finalize immediately.
+    queuePlayerAction(selectedUnit);
+    return;
+  }
+
+  updateStatus(targetType === 'ally' ? `Choose an ally for ${ability.name}` : `Choose an enemy target for ${ability.name}`);
+  renderAbilityRow();
+  renderTargetRings();
+}
+
+// --- Target rings drawn over valid targets ---
+// Tracks the ring DOM elements currently on screen so renderTargetRings()
+// can reposition them in place on most calls, instead of unconditionally
+// deleting and recreating every element. Recreating elements every ~100ms
+// was the root cause of the "targeting needs several taps" bug: if a
+// wipe-and-recreate landed between a touch's pointerdown and pointerup/
+// click, the DOM node the gesture started on no longer existed by the
+// time the click would fire, silently dropping the tap.
+let targetRingState = {
+  selectedUnit: null,
+  selectedAbility: null,
+  selRingEl: null,
+  targetRingEls: new Map() // unit.uid -> ring element
+};
+
+function renderTargetRings() {
+  // Resolve the "effective" unit/ability driving ring display — either the
+  // normal selection, the echo sub-flow (after an echo ability is chosen),
+  // or the second-target sub-flow (fixed-type second target, e.g.
+  // Babawibby's sacrifice-then-damage), so target rings can be shown for
+  // whichever pick is currently pending, reusing all the same DOM/click logic.
+  const inSecondTargetFlow = !!secondTargetMode;
+  const effectiveUnit = inSecondTargetFlow ? secondTargetMode.actor
+    : (echoSubMode && echoSubMode.chosenEchoAbility) ? echoSubMode.actor : selectedUnit;
+  const effectiveAbility = inSecondTargetFlow ? secondTargetMode.ability
+    : (echoSubMode && echoSubMode.chosenEchoAbility) ? echoSubMode.chosenEchoAbility : selectedAbility;
+
+  if (!effectiveUnit || phase !== 'planning') {
+    clearTargetRings();
+    renderTargetListPanel(null, null);
+    return;
+  }
+
+  // While mid echo-sub-flow, the echoed ability always targets an ally,
+  // regardless of that ability's own default targetType. While mid
+  // second-target-sub-flow, use the fixed type the ability declared.
+  const inEchoSubFlow = !!(echoSubMode && echoSubMode.chosenEchoAbility);
+  const targetType = inSecondTargetFlow ? secondTargetMode.secondTargetType
+    : effectiveAbility ? (inEchoSubFlow ? 'ally' : (effectiveAbility.targetType || 'enemy')) : null;
+  let pool = effectiveAbility ? (targetType === 'ally' ? playerUnits : enemyUnits).filter(u => u.alive) : [];
+  // Some abilities only make sense against a subset of that pool (e.g.
+  // Babawibby's "Destrua uma Máquina de Guerra" should only ever be aimed
+  // at a summoned Máquina de Guerra, not any ally). `targetFilter` on the
+  // ability def, if present, narrows the pool further. Doesn't apply during
+  // the second-target sub-flow — that pool is always the plain fixed type.
+  if (effectiveAbility && !inEchoSubFlow && !inSecondTargetFlow && effectiveAbility.targetFilter) {
+    pool = pool.filter(u => effectiveAbility.targetFilter(u));
+  }
+
+  renderTargetListPanel(pool, targetType);
+
+  // Only tear down and rebuild the ring SET when the selection itself
+  // changed (different unit, different ability, or the living-target
+  // pool changed e.g. someone died). Otherwise just reposition the
+  // existing elements — cheap, and never removes a node mid-gesture.
+  const selectionChanged = targetRingState.selectedUnit !== effectiveUnit
+    || targetRingState.selectedAbility !== effectiveAbility
+    || targetRingState.targetRingEls.size !== pool.length
+    || pool.some(u => !targetRingState.targetRingEls.has(u.uid));
+
+  if (selectionChanged) {
+    clearTargetRings();
+    targetRingState.selectedUnit = effectiveUnit;
+    targetRingState.selectedAbility = effectiveAbility;
+
+    const ring = document.createElement('div');
+    ring.className = 'selected-ring';
+    labelLayer.appendChild(ring);
+    targetRingState.selRingEl = ring;
+
+    if (effectiveAbility) {
+      pool.forEach(u => {
+        const tRing = document.createElement('div');
+        tRing.className = 'targetable-ring';
+        tRing.addEventListener('click', () => queuePlayerAction(u));
+        labelLayer.appendChild(tRing);
+        targetRingState.targetRingEls.set(u.uid, tRing);
+      });
+    }
+  }
+
+  // Reposition (every call): target positions can drift slightly during
+  // hit-shake etc., so keep coordinates fresh without touching the DOM
+  // node identity.
+  const selPos = worldToScreen(effectiveUnit.model.position.clone().add(new THREE.Vector3(0, 0.05, 0)));
+  targetRingState.selRingEl.style.left = selPos.x + 'px';
+  targetRingState.selRingEl.style.top = selPos.y + 'px';
+
+  pool.forEach(u => {
+    const el = targetRingState.targetRingEls.get(u.uid);
+    if (!el) return;
+    const pos = worldToScreen(u.model.position.clone().add(new THREE.Vector3(0, 0.05, 0)));
+    el.style.left = pos.x + 'px';
+    el.style.top = pos.y + 'px';
+  });
+}
+
+function clearTargetRings() {
+  document.querySelectorAll('.targetable-ring, .selected-ring').forEach(el => el.remove());
+  targetRingState.selectedUnit = null;
+  targetRingState.selectedAbility = null;
+  targetRingState.selRingEl = null;
+  targetRingState.targetRingEls.clear();
+}
+
+// --- Target list panel ---
+// Alternate targeting UI for cluttered boards: lists the same valid-target
+// pool renderTargetRings() computes as tappable rows (name + live HP),
+// so a target can be picked without hunting for its ring on the battlefield.
+// Rebuilt only when the pool identity actually changes (mirrors the ring
+// dedupe logic) so it doesn't flicker/rebuild every throttle tick; HP/shield
+// numbers are refreshed in place every call via refreshTargetListPanel().
+let targetListPanelState = { uids: null };
+const targetListPanelEl = document.getElementById('target-list-panel');
+
+function renderTargetListPanel(pool, targetType) {
+  if (!pool || pool.length === 0) {
+    targetListPanelEl.classList.remove('show');
+    targetListPanelEl.innerHTML = '';
+    targetListPanelState.uids = null;
+    return;
+  }
+
+  const uidsKey = pool.map(u => u.uid).join(',');
+  if (targetListPanelState.uids !== uidsKey) {
+    targetListPanelState.uids = uidsKey;
+    const sideClass = targetType === 'ally' ? 'tl-ally' : 'tl-enemy';
+    const fillClass = targetType === 'ally' ? 'tl-ally-fill' : 'tl-enemy-fill';
+    targetListPanelEl.innerHTML =
+      '<div class="target-list-title">Tap to target</div>' +
+      pool.map(u => `
+        <div class="target-list-row ${sideClass}" data-uid="${u.uid}">
+          <div class="tl-name-line">
+            <span class="tl-name">${u.displayName}</span>
+            <span class="tl-hp-num">${Math.max(0, Math.round(u.hp))}/${u.maxHP}</span>
+          </div>
+          <div class="tl-hpwrap"><div class="tl-hpfill ${fillClass}" style="width:0%"></div></div>
+          <div class="tl-extra"></div>
+        </div>
+      `).join('');
+    pool.forEach(u => {
+      const row = targetListPanelEl.querySelector(`.target-list-row[data-uid="${u.uid}"]`);
+      if (row) row.addEventListener('click', () => queuePlayerAction(u));
+    });
+  }
+
+  targetListPanelEl.classList.toggle('log-open', logPanel.classList.contains('open'));
+  targetListPanelEl.classList.add('show');
+  refreshTargetListPanel(pool);
+}
+
+function refreshTargetListPanel(pool) {
+  pool.forEach(u => {
+    const row = targetListPanelEl.querySelector(`.target-list-row[data-uid="${u.uid}"]`);
+    if (!row) return;
+    const pct = Math.max(0, Math.min(100, (u.hp / u.maxHP) * 100));
+    row.querySelector('.tl-hp-num').textContent = `${Math.max(0, Math.round(u.hp))}/${u.maxHP}`;
+    row.querySelector('.tl-hpfill').style.width = pct + '%';
+    const extraEl = row.querySelector('.tl-extra');
+    const bits = [];
+    if (u.shield > 0) bits.push(`🛡${Math.round(u.shield)}`);
+    if (u.statuses && u.statuses.length) bits.push(u.statuses.map(s => s.name).join(', '));
+    extraEl.textContent = bits.join(' · ');
+  });
+}
+
+// --- Queue (not execute) the player's chosen action for this unit ---
+function queuePlayerAction(target) {
+  if (phase !== 'planning' || gameOver) return;
+
+  // Branch 0: we're in the second-target sub-flow (fixed-type second
+  // target, no ability re-choice — e.g. Babawibby's sacrifice-then-damage).
+  if (secondTargetMode) {
+    finalizeSecondTargetPlan(target);
+    return;
+  }
+
+  // Branch 1: we're in the echo sub-flow, picking a TARGET for the
+  // already-chosen secondary ability.
+  if (echoSubMode && echoSubMode.chosenEchoAbility) {
+    finalizeEchoPlan(target);
+    return;
+  }
+
+  if (!selectedUnit || !selectedAbility) return;
+  const actor = selectedUnit, ability = selectedAbility;
+
+  if (ability.promptsEcho) {
+    // Don't finalize the plan entry yet — stash the primary choice and
+    // enter the echo sub-flow: pick a different ability next, then a
+    // target for THAT ability.
+    echoSubMode = { actor, primaryAbility: ability, primaryTarget: target, chosenEchoAbility: null };
+    selectedUnit = null; selectedAbility = null;
+    updateStatus(`${ability.name} vai acertar. Agora escolha outra habilidade de ${actor.displayName} para ecoar.`);
+    renderPartyRow(); renderAbilityRow(); renderTargetRings();
+    return;
+  }
+
+  if (ability.promptsSecondTarget) {
+    // Don't finalize yet — stash the primary target (e.g. the machine
+    // being sacrificed) and prompt for a second target of the fixed type
+    // the ability declares (e.g. 'enemy' who takes the resulting damage).
+    secondTargetMode = { actor, ability, primaryTarget: target, secondTargetType: ability.promptsSecondTarget };
+    selectedUnit = null; selectedAbility = null;
+    updateStatus(`Agora escolha ${ability.promptsSecondTarget === 'ally' ? 'um aliado' : 'um inimigo'} para ${ability.name}.`);
+    renderPartyRow(); renderAbilityRow(); renderTargetRings();
+    return;
+  }
+
+  // Replace any existing plan entry for this actor
+  playerPlan = playerPlan.filter(p => p.actor !== actor);
+  playerPlan.push({ actor, ability, target });
+
+  selectedUnit = null; selectedAbility = null;
+  const remaining = livingPlayerUnits().filter(u => !planEntryFor(u));
+  updateStatus(remaining.length > 0 ? `${ability.name} queued. Choose an ability for your next unit.` : `All units ready — tap FIGHT! to resolve the round`);
+  renderPartyRow(); renderAbilityRow(); renderTargetRings();
+}
+
+// Called once the player picks the second (fixed-type) target, completing
+// the plan entry: primary target plus the second target.
+function finalizeSecondTargetPlan(secondTarget) {
+  const { actor, ability, primaryTarget } = secondTargetMode;
+  playerPlan = playerPlan.filter(p => p.actor !== actor);
+  playerPlan.push({ actor, ability, target: primaryTarget, secondTarget });
+  secondTargetMode = null;
+  selectedUnit = null; selectedAbility = null;
+  const remaining = livingPlayerUnits().filter(u => !planEntryFor(u));
+  updateStatus(remaining.length > 0 ? `${ability.name} queued. Choose an ability for your next unit.` : `All units ready — tap FIGHT! to resolve the round`);
+  renderPartyRow(); renderAbilityRow(); renderTargetRings();
+}
+
+// Called once the player picks a target for the echo ability, completing
+// the whole plan entry: primary ability+target, plus the echo choice.
+function finalizeEchoPlan(echoTarget) {
+  const { actor, primaryAbility, primaryTarget, chosenEchoAbility } = echoSubMode;
+  playerPlan = playerPlan.filter(p => p.actor !== actor);
+  playerPlan.push({
+    actor, ability: primaryAbility, target: primaryTarget,
+    echo: { ability: chosenEchoAbility, target: echoTarget }
+  });
+  echoSubMode = null;
+  selectedUnit = null; selectedAbility = null;
+  const remaining = livingPlayerUnits().filter(u => !planEntryFor(u));
+  updateStatus(remaining.length > 0 ? `${primaryAbility.name} + ${chosenEchoAbility.name} queued. Choose an ability for your next unit.` : `All units ready — tap FIGHT! to resolve the round`);
+  renderPartyRow(); renderAbilityRow(); renderTargetRings();
+}
+
+// Called when the player taps an ability button while mid echo-sub-flow
+// (picking WHICH ability to echo, before picking its target).
+function selectEchoAbility(ability) {
+  if (!echoSubMode || echoSubMode.chosenEchoAbility) return;
+  echoSubMode.chosenEchoAbility = ability;
+  // Echoed abilities always target an ally, regardless of the ability's
+  // own default targetType (e.g. Yvrel's echo re-casts on a teammate).
+  updateStatus(`Choose an ally for the echoed ${ability.name}`);
+  renderAbilityRow();
+  renderTargetRings();
+}
+
+// Cancels the echo sub-flow entirely (e.g. player selects a different unit
+// mid-flow), discarding the primary choice too since it was never queued.
+function cancelEchoSubMode() {
+  echoSubMode = null;
+  secondTargetMode = null;
+}
+
+// =============================================================
+// ============ SPEED-ORDERED RESOLUTION PHASE ===================
+// =============================================================
+// Both sides' actions (already fully decided) are merged into one
+// list and sorted by ability speed (higher speed = acts first).
+// Each entry still runs through the SAME AnimationEngine.play()
+// pipeline, whether it originated from the player's plan or the AI.
+
+// beginResolutionPhase / retargetIfDead now loaded from js/resolution.js (v2)
+const beginResolutionPhase = () => beginResolutionPhaseV2();
+
+function checkGameOver() {
+  if (CombatEngine.isTeamDefeated(playerUnits)) {
+    showOverlay(false);
+    return true;
+  }
+  if (CombatEngine.isTeamDefeated(enemyUnits)) {
+    showOverlay(true);
+    return true;
+  }
+  return false;
+}
+
+function showOverlay(won) {
+  gameOver = true;
+  inputLocked = true;
+  const title = document.getElementById('overlay-title');
+  const sub = document.getElementById('overlay-sub');
+  title.textContent = won ? 'VICTORY' : 'DEFEAT';
+  title.className = won ? 'win' : 'lose';
+  sub.textContent = won ? 'Your squad held the battlefield.' : 'Your squad has fallen.';
+  overlay.classList.add('show');
+}
+
+document.getElementById('restart-btn').addEventListener('click', () => initGame(lastChosenPlayerOrder));
+
+// =============================================================
+// ============ SECTION 11: IDLE ANIMATION LOOP + RENDER =========
+// =============================================================
+
+const clockObj = new THREE.Clock();
+
+function updateIdle(unit, elapsed) {
+  if (!unit.alive || !unit.idleActive) return;
+  const t = elapsed + unit.idleClock;
+  const bob = Math.sin(t * 2.2) * 0.045;
+  unit.body.position.y = bob;
+  unit.body.rotation.y = Math.sin(t * 1.3) * 0.06;
+  if (unit.core) {
+    const pulse = 0.35 + Math.sin(t * 3) * 0.15;
+    if (unit.core.material) unit.core.material.emissiveIntensity = pulse;
+  }
+  if (unit.weapon) {
+    unit.weapon.position.y += Math.sin(t * 2.6) * 0.0015;
+  }
+  // Character-specific idle flourish layered on top of the generic bob/pulse
+  // above, if this character has one. Runs after so it can override rotation
+  // axes the generic idle doesn't touch (e.g. Babawibby's extra sway).
+  const profile = CHARACTER_ANIM_PROFILES[unit.defId];
+  if (profile && profile.idleExtra) profile.idleExtra(unit, t);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clockObj.getDelta(), 0.05);
+  const elapsed = clockObj.getElapsedTime();
+
+  animRunner.tick(dt);
+  updateParticles(dt);
+  updateCameraOrbit(dt);
+  updateCameraShake(dt);
+
+  [...playerUnits, ...enemyUnits].forEach(u => updateIdle(u, elapsed));
+
+  updateLabelPositions();
+  if (!inputLocked) renderTargetRingsThrottled();
+
+  renderer.render(scene, camera);
+}
+
+// Ring positions are recomputed every frame now (cheap: renderTargetRings
+// repositions existing DOM nodes rather than recreating them, see the
+// selectionChanged guard inside it). This used to be throttled to every
+// 6th frame under the assumption the camera was static during planning,
+// but that's no longer true now that the camera idly orbits during
+// planning — throttling would make rings visibly lag behind their units.
+function renderTargetRingsThrottled() {
+  if (selectedUnit || document.querySelectorAll('.targetable-ring').length) {
+    renderTargetRings();
+  }
+}
+
+// =============================================================
+// ============ BOOT ==============================================
+// =============================================================
+
+window.addEventListener('load', () => {
+  document.getElementById('loading').style.display = 'none';
+  openTeamSelect();
+  animate();
+});
+</script>
+<script src="js/resolution.js"></script>
+</body>
+</html>
