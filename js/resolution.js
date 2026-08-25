@@ -12,15 +12,9 @@
 //  - Bleed (and any future roundEnd-tick status) ticks once at the end
 //    of the round, after all queued/forced actions have resolved.
 
-// Load the Ajax GLB runtime on the experimental branch. It self-registers
-// the async model swap while keeping the existing procedural fallback.
-{
-  const s = document.createElement('script');
-  s.src = 'js/ajax-3d-runtime.js';
-  s.onload = () => console.log('[Ajax 3D] runtime ready');
-  s.onerror = (e) => console.warn('[Ajax 3D] runtime failed to load', e);
-  document.head.appendChild(s);
-}
+// Ajax 3D runtime is loaded explicitly by index.html immediately after the
+// main inline game script. That guarantees the runtime patches the real
+// BESPOKE_BUILDERS registry before the player can create a Unit.
 
 // =============================================================
 // ============ ORDER STRIP UI (moved here from the old inline
