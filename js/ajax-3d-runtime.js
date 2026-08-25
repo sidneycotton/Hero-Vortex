@@ -12,105 +12,124 @@
     });
   }
 
+  // IMPORTANT: index.html builds BESPOKE_BUILDERS once during script
+  // evaluation. Replacing window.buildAjaxModel later does NOT update that
+  // registry automatically. The previous version therefore never reached
+  // this GLB-backed builder and kept using the original primitive Ajax.
   loaderReady = addScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js')
     .then(() => addScript('js/ajax-model-asset.js'))
-    .catch(err => console.error('Ajax 3D runtime setup failed', err));
+    .catch(err => {
+      console.error('[Ajax 3D] loader setup failed', err);
+      throw err;
+    });
 
-  const originalBuilder = window.buildAjaxModel;
+  const originalBuilder = (typeof window.buildAjaxModel === 'function')
+    ? window.buildAjaxModel
+    : null;
 
-  // Replace the primitive Ajax builder with an asynchronous, game-ready
-  // GLB-backed builder. buildUnitModel() is still synchronous, so it creates
-  // a lightweight anchor immediately and swaps the real model in when ready.
   window.buildAjaxModel = function ajax3dBuilder(bodyGroup, mainMat, accentMat, def) {
     const anchor = new THREE.Group();
     anchor.name = 'ajax_model_anchor';
     bodyGroup.add(anchor);
 
-    // Named hooks retained for the existing animation code.
     const core = new THREE.Group();
     core.name = 'core';
     bodyGroup.add(core);
 
-    // Keep the old fallback available until the real mesh has arrived. This
-    // prevents a blank character if a browser/network blocks the loader.
     let fallback = null;
-    if (typeof originalBuilder === 'function') {
+    if (originalBuilder) {
       try {
         fallback = originalBuilder(bodyGroup, mainMat, accentMat, def);
       } catch (e) {
-        console.warn('Ajax fallback builder failed', e);
+        console.warn('[Ajax 3D] primitive fallback builder failed', e);
       }
     }
 
     const install = () => {
       if (modelReady) return modelReady;
+
       modelReady = loaderReady.then(() => new Promise((resolve, reject) => {
-        if (typeof loadAjaxGameModel !== 'function') return reject(new Error('loadAjaxGameModel unavailable'));
-        loadAjaxGameModel((sceneRoot) => {
-          sceneRoot.name = 'AjaxGLB';
-          // The generated GLB is authored in the same world orientation as
-          // Hero Vortex: Y-up, front toward +Z. Player/enemy root rotation
-          // is handled by Unit just like every other unit.
-          sceneRoot.scale.setScalar(1.0);
-          sceneRoot.traverse(obj => {
-            if (obj.isMesh) {
+        if (typeof window.loadAjaxGameModel !== 'function') {
+          reject(new Error('loadAjaxGameModel unavailable'));
+          return;
+        }
+
+        window.loadAjaxGameModel((sceneRoot) => {
+          try {
+            sceneRoot.name = 'AjaxGLB';
+            sceneRoot.scale.setScalar(1.0);
+
+            sceneRoot.traverse(obj => {
+              if (!obj.isMesh) return;
               obj.castShadow = true;
               obj.receiveShadow = true;
-              if (obj.material && obj.material.map) obj.material.map.colorSpace = THREE.SRGBColorSpace;
-            }
-          });
-          anchor.add(sceneRoot);
-
-          // A tiny hidden weapon hook lets the existing combat animation
-          // system keep its generic contract without needing a visible prop.
-          const weaponHook = new THREE.Group();
-          weaponHook.name = 'weapon';
-          sceneRoot.add(weaponHook);
-
-          if (fallback) {
-            // Remove the procedural Ajax pieces after the real model is in.
-            const fallbackRoot = fallback[0]?.parent?.parent || null;
-            // The fallback builder adds directly to bodyGroup; identify its
-            // named top-level meshes/groups and remove everything except our
-            // two hooks and the loaded anchor.
-            [...bodyGroup.children].forEach(child => {
-              if (child !== anchor && child !== core && child !== sceneRoot) {
-                bodyGroup.remove(child);
-                child.traverse(o => {
-                  if (o.geometry) o.geometry.dispose();
-                  if (o.material && o.material !== mainMat && o.material !== accentMat) {
-                    if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
-                    else o.material.dispose();
-                  }
-                });
+              if (obj.material && obj.material.map && THREE.SRGBColorSpace) {
+                obj.material.map.colorSpace = THREE.SRGBColorSpace;
               }
             });
+
+            anchor.add(sceneRoot);
+
+            const weaponHook = new THREE.Group();
+            weaponHook.name = 'weapon';
+            sceneRoot.add(weaponHook);
+
+            if (fallback) {
+              [...bodyGroup.children].forEach(child => {
+                if (child !== anchor && child !== core) {
+                  bodyGroup.remove(child);
+                  child.traverse(o => {
+                    if (o.geometry) o.geometry.dispose();
+                    if (o.material && o.material !== mainMat && o.material !== accentMat) {
+                      if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
+                      else o.material.dispose();
+                    }
+                  });
+                }
+              });
+            }
+
+            const outlineMat = new THREE.MeshBasicMaterial({
+              color: 0x000000,
+              side: THREE.BackSide
+            });
+            sceneRoot.traverse(o => {
+              if (!o.isMesh || o.userData.isOutline) return;
+              const outline = new THREE.Mesh(o.geometry, outlineMat);
+              outline.scale.multiplyScalar(1.035);
+              outline.userData.isOutline = true;
+              outline.renderOrder = -1;
+              o.add(outline);
+            });
+
+            window.__AJAX_3D_LAST_ERROR = null;
+            console.log('[Ajax 3D] GLB installed successfully', sceneRoot);
+            resolve(sceneRoot);
+          } catch (err) {
+            reject(err);
           }
-
-          // Re-run the same per-mesh outline policy used by the rest of the
-          // game, but only on the newly loaded Ajax hierarchy.
-          const outlineMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
-          sceneRoot.traverse(o => {
-            if (!o.isMesh || o.userData.isOutline) return;
-            const outline = new THREE.Mesh(o.geometry, outlineMat);
-            outline.scale.multiplyScalar(1.035);
-            outline.userData.isOutline = true;
-            outline.renderOrder = -1;
-            o.add(outline);
-          });
-
-          resolve(sceneRoot);
         }, reject);
-      }));
+      })).catch(err => {
+        window.__AJAX_3D_LAST_ERROR = String(err && err.message ? err.message : err);
+        console.error('[Ajax 3D] GLB load failed', err);
+        throw err;
+      });
+
       return modelReady;
     };
 
-    install().catch(err => {
-      console.warn('Ajax GLB load failed; keeping procedural fallback.', err);
-    });
-
+    install().catch(() => {});
     return fallback || [];
   };
 
-  window.AJAX_3D_STATUS = () => ({ ready: !!modelReady, loading: !!loaderReady });
+  // CRITICAL: refresh the registry that buildUnitModel() actually consults.
+  if (typeof BESPOKE_BUILDERS === 'object' && BESPOKE_BUILDERS) {
+    BESPOKE_BUILDERS.ajax = window.buildAjaxModel;
+  }
+
+  window.AJAX_3D_STATUS = () => ({
+    loaderReady: !!loaderReady,
+    ready: !!modelReady,
+    error: window.__AJAX_3D_LAST_ERROR || null
+  });
 })();
