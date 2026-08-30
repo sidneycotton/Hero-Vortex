@@ -1,0 +1,354 @@
+/* =============================================================
+   TEAM SELECT — standalone stylesheet
+   =============================================================
+   Kept separate from index.html's <style> block on purpose: this is its
+   own game piece (js/team-select.js owns the DOM/behavior, this owns the
+   look), so the two can be edited, replaced, or reused independently of
+   the core battle screen's styling.
+*/
+
+/* Same backdrop + centered bordered-panel chrome as the campaign draft
+   modal (css/campaign-nodes.css's .cnu-backdrop/.cnu-modal) so this
+   screen and the campaign draft read as the same picker UI instead of
+   two different designs — dim scrim behind, one framed dark card in
+   front, rather than the old full-bleed flat screen. */
+#team-select {
+  position: absolute; inset: 0; z-index: 25;
+  background: rgba(3,4,8,0.92);
+  display: none; flex-direction: column; align-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden; /* nothing here scrolls the page — fixed-viewport app */
+}
+#team-select.show { display: flex; }
+
+.ts-panel {
+  width: 100%; max-width: 1040px; height: 100%; max-height: 720px;
+  background: #12141c; border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 16px;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; min-height: 0;
+}
+
+/* The floating #pvp-status-badge (see main-menu.css) is pinned to the
+   very top of the screen, centered — during a PVP match it lands right
+   on top of this screen's own header row (title/tabs), covering the
+   middle role tab entirely and making it unclickable. Push the header
+   down to clear it whenever the badge is actually showing. body.pvp-active
+   is toggled by js/net/pvp.js for the lifetime of a match. */
+body.pvp-active .ts-panel { padding-top: 46px; }
+
+/* ---- header: title, role tabs, search ---- */
+.ts-header { flex: 0 0 auto; }
+.ts-header h1 {
+  font-size: 16px; font-weight: 700; margin: 0 0 10px; text-align: center;
+  letter-spacing: 0.3px; color: #6ee7ff;
+}
+
+.ts-tabs { display: flex; gap: 6px; }
+.ts-tab {
+  flex: 1 1 0;
+  background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 8px 4px;
+  color: #b9c8e6; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ts-tab:hover { border-color: #6ee7ff; background: rgba(110,231,255,0.06); }
+.ts-tab.active { border-color: #6ee7ff; color: #6ee7ff; background: rgba(110,231,255,0.14); }
+
+.ts-search-wrap { margin-top: 8px; }
+.ts-search {
+  width: 100%; background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 9px 12px; color: #e8eefc; font-size: 13px;
+  box-sizing: border-box;
+}
+.ts-search:focus { outline: none; border-color: #6ee7ff; }
+.ts-search::placeholder { color: #6b7690; }
+
+/* ---- body: card stage (left/center) + deck panel (right) ---- */
+.ts-body {
+  flex: 1 1 auto; min-height: 0; margin-top: 10px;
+  display: flex; gap: 10px;
+}
+
+.ts-stage {
+  flex: 1 1 auto; min-width: 0;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- nav arrows, pinned to the screen edges of the stage ---- */
+.ts-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 64px; z-index: 3;
+  background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; color: #6ee7ff; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.ts-arrow:active { background: rgba(110,231,255,0.18); border-color: #6ee7ff; }
+.ts-arrow-left { left: 0; }
+.ts-arrow-right { right: 0; }
+
+.ts-position {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: #6b7690; letter-spacing: 0.5px;
+}
+
+.ts-empty {
+  display: none; align-items: center; justify-content: center;
+  color: #6b7690; font-size: 13px; height: 100%; width: 100%;
+}
+
+/* ---- the card: two separate panels — model (left, bigger) and
+   abilities (right, its own bordered sidebar) — rather than one shared
+   box, so the 3D render isn't fighting the ability text for space. ---- */
+.ts-card {
+  display: flex; gap: 14px;
+  width: 100%; height: 100%;
+  max-width: 900px;
+  margin: 0 52px; /* clears the arrows */
+}
+
+.ts-model-panel {
+  flex: 1.6 1 0; min-width: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(110,231,255,0.1), transparent 70%);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-card-render { position: absolute; inset: 0; }
+.ts-card-render canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.ts-ability-panel {
+  flex: 1 1 0; min-width: 220px; max-width: 300px;
+  display: flex; flex-direction: column;
+  padding: 12px 12px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  min-height: 0; /* allow children to shrink instead of overflowing the panel */
+  overflow: hidden; /* only .ts-ability-list scrolls internally, not the panel itself */
+}
+
+.ts-card-name { font-size: 18px; font-weight: 800; color: #e8eefc; }
+.ts-card-meta { font-size: 12px; color: #7fd8ff; margin-top: 2px; letter-spacing: 0.3px; }
+
+.ts-ability-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  margin-top: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.ts-ability-row {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 8px 10px;
+}
+.ts-ability-name-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ts-ability-name { font-size: 13px; font-weight: 700; color: #e8eefc; }
+.ts-ability-speed { font-size: 10px; font-weight: 700; color: #7fd8ff; letter-spacing: 0.3px; flex: 0 0 auto; }
+.ts-ability-desc { font-size: 11.5px; color: #9aa8c4; margin-top: 3px; line-height: 1.35; }
+.ts-ability-row-playable {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.ts-ability-row-playable:hover { background: rgba(127,216,255,0.08); border-color: rgba(127,216,255,0.35); }
+.ts-ability-row-playable:active { transform: scale(0.98); background: rgba(127,216,255,0.14); }
+.ts-ability-row-passive { border-color: rgba(143,217,201,0.25); }
+.ts-ability-row-passive .ts-ability-speed { color: #8fd9c9; }
+.ts-ability-row-passive.ts-ability-row-playable:hover { background: rgba(143,217,201,0.1); border-color: rgba(143,217,201,0.4); }
+.ts-ability-row-passive.ts-ability-row-playable:active { background: rgba(143,217,201,0.16); }
+
+/* ---- summon showcase ---- */
+.ts-summon-note {
+  display: none; flex-direction: column; gap: 2px;
+  margin-top: 10px; padding: 8px 10px;
+  background: rgba(212,175,55,0.08);
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ts-summon-note:hover { background: rgba(212,175,55,0.14); }
+.ts-summon-badge { font-size: 11px; font-weight: 800; color: #d4af37; letter-spacing: 0.3px; }
+.ts-summon-name { font-size: 12px; color: #e8eefc; }
+
+/* ---- token popup (opened by clicking the summon badge) ---- */
+.ts-token-popup {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  align-items: center; justify-content: center;
+  background: rgba(5,10,16,0.72);
+}
+.ts-token-popup.show { display: flex; }
+.ts-token-popup-card {
+  position: relative; display: flex; gap: 4px;
+  width: 92%; max-width: 560px; height: 60%; max-height: 480px;
+  background: #0b141d;
+  border: 2px solid rgba(212,175,55,0.35);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.ts-token-popup-render {
+  flex: 1 1 42%; min-width: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(212,175,55,0.10), transparent 70%);
+  position: relative;
+}
+.ts-token-popup-render canvas { display: block; width: 100% !important; height: 100% !important; }
+.ts-token-popup-info {
+  flex: 1 1 58%; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 14px 14px 12px;
+  overflow-y: auto;
+}
+.ts-token-popup-close {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: #e8eefc; font-size: 13px; line-height: 1; cursor: pointer;
+}
+.ts-token-popup-close:hover { background: rgba(255,255,255,0.18); }
+
+@media (max-width: 720px) {
+  .ts-token-popup-card { flex-direction: column; height: 78%; max-height: none; }
+  .ts-token-popup-render { flex: 0 0 38%; }
+  .ts-token-popup-info { flex: 1 1 auto; }
+}
+
+.ts-add-btn {
+  flex: 0 0 auto; margin-top: 12px;
+  background: rgba(110,231,255,0.1); border: 2px solid #6ee7ff; border-radius: 8px;
+  padding: 10px 8px; font-size: 13px; font-weight: 700; color: #6ee7ff; cursor: pointer;
+  transition: background 0.15s;
+}
+.ts-add-btn:hover { background: rgba(110,231,255,0.22); }
+.ts-add-btn.active-pick { background: rgba(110,231,255,0.22); }
+
+/* ---- deck panel — always visible on the right ---- */
+.ts-deck {
+  flex: 0 0 152px;
+  display: flex; flex-direction: column;
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 10px;
+}
+.ts-deck-title {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  color: #7fd8ff; text-align: center; flex: 0 0 auto;
+}
+.ts-deck-slots { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+
+.ts-deck-role-group { display: flex; flex-direction: column; gap: 4px; }
+.ts-deck-role-header {
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #7fd8ff;
+}
+.ts-deck-pair { display: flex; gap: 6px; }
+.ts-deck-pair .ts-deck-slot { flex: 1 1 0; min-width: 0; }
+
+.ts-deck-slot {
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 8px;
+  background: rgba(255,255,255,0.04);
+  transition: border-color 0.15s, background 0.15s;
+  /* Without border-box, this slot's border+padding get added on top of
+     its flex-computed width (flex:1 1 0 on .ts-deck-pair .ts-deck-slot).
+     On mobile, where .ts-deck-slots switches to a row of 3 cramped
+     role-groups (each holding a pair of these slots), that extra width
+     was enough to make slots clip into each other / overflow their
+     role-group instead of lining up evenly. */
+  box-sizing: border-box;
+  min-width: 0;
+}
+.ts-deck-slot.filled { border-color: #6ee7ff; background: rgba(110,231,255,0.14); }
+.ts-deck-slot.clickable { cursor: pointer; }
+.ts-deck-slot.clickable:hover { border-color: #6ee7ff; background: rgba(110,231,255,0.08); }
+.ts-deck-role { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #7fd8ff; }
+.ts-deck-name {
+  font-size: 12px; font-weight: 700; margin-top: 3px; color: #e8eefc;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ts-deck-hp { font-size: 10.5px; color: #b9c8e6; margin-top: 2px; }
+
+.ts-confirm {
+  flex: 0 0 auto; margin-top: 10px;
+  background: rgba(110,231,255,0.1); border: 2px solid #6ee7ff; border-radius: 8px;
+  padding: 10px 8px; font-size: 13px; font-weight: 700; color: #6ee7ff; cursor: pointer;
+  transition: background 0.15s;
+  opacity: 0.4; pointer-events: none;
+}
+.ts-confirm:hover { background: rgba(110,231,255,0.22); }
+.ts-confirm.ready { opacity: 1; pointer-events: auto; }
+#ts-add-btn.disabled-pick { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- narrow / mobile-portrait fallback ----
+   Stack the deck under the stage, and stack the card's model/ability
+   panels, instead of trying to fit model + abilities (min 220px) + a
+   152px deck rail + nav arrows side-by-side. That side-by-side desktop
+   layout needs roughly 1100px+ to breathe; below that the ability
+   panel's min-width forced horizontal overflow, squeezing the deck rail
+   to a sliver and overlapping "Add to Deck" onto "YOUR DECK" — this
+   breakpoint used to be 700px, which left a broad broken middle ground
+   (a resized desktop window, not just phones, could land in it).
+*/
+@media (max-width: 1100px) {
+  #team-select { padding: 8px; }
+  .ts-panel { max-height: none; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .ts-body { flex-direction: column; overflow: visible; min-height: 0; }
+
+  /* .ts-stage is normally a flex-centering box with a fixed height (set
+     by the side-by-side desktop layout, with the nav arrows pinned to
+     its edges) that .ts-card sits centered inside. Stacked on mobile,
+     .ts-card's real height varies with content (a character with 3 long
+     ability descriptions is taller than a short one), but a flex-centered
+     child doesn't push its centering parent taller — .ts-card just
+     overflowed downward past .ts-stage's box and visually collided with
+     the deck panel/Add-to-Deck button below it. Switch .ts-stage to plain
+     block flow here so it always grows to fit .ts-card's actual rendered
+     height, pushing later siblings down instead of overlapping them —
+     this was the cause of "Add to Deck" overlapping "YOUR DECK".
+  */
+  /* .ts-stage still carried its desktop flex: 1 1 auto here, which — even
+     switched to display:block — kept it sized by .ts-body's flex layout
+     (a fixed leftover-space height) rather than by .ts-card's real content
+     height. .ts-card (taller than that allotted space) then spilled past
+     .ts-stage's bottom edge and straight through .ts-deck below it, which
+     is exactly what caused "Add to Deck" / the ability panel to overlap
+     "YOUR DECK". flex: 0 0 auto lets .ts-stage's height come from its
+     content instead, so .ts-body (and everything after .ts-stage) grows
+     to match. */
+  .ts-stage { display: block; flex: 0 0 auto; min-height: 0; }
+  .ts-card {
+    position: static; height: auto; flex-direction: column;
+    /* Base rule sets width:100%, sized against .ts-stage. Margin adds on
+       top of that width rather than eating into it, so a plain
+       "margin: 0 40px" here (to clear the 42px-wide arrows) pushed the
+       card's right edge 40px past .ts-stage/.ts-body's own right edge —
+       this was the "box rendering too far to the right" overflow.
+       calc() reclaims that space from width instead of growing past it. */
+    width: calc(100% - 80px);
+    margin: 0 40px;
+  }
+  .ts-model-panel { flex: 0 0 260px; }
+  /* Cap the ability panel's own height instead of letting it grow with
+     content — .ts-ability-list (min-height:0 + its own overflow-y:auto,
+     set above) shrinks and scrolls internally while "Add to Deck" stays
+     pinned right below it, visible without scrolling the whole screen. */
+  .ts-ability-panel { flex: 0 0 auto; max-width: none; max-height: 46vh; }
+  .ts-ability-list { gap: 6px; }
+
+  /* Arrows/position counter now overlay just the (fixed-height) model
+     panel's vertical band rather than centering on the whole variable-
+     height stage, so they stay lined up with the character render
+     instead of drifting down toward whichever role happens to have the
+     longest ability text. Kept within .ts-stage's own left/right edges
+     (0, not a negative offset) so they never clip past .ts-panel's
+     padding — .ts-card's margin above is what clears room for them. */
+  .ts-arrow { top: 130px; }
+  .ts-position { position: static; text-align: center; margin-top: 6px; }
+
+  .ts-deck { flex: 0 0 auto; }
+  .ts-deck-slots { flex-direction: row; margin-top: 8px; gap: 6px; }
+  .ts-deck-role-group { flex: 1 1 0; min-width: 0; }
+  .ts-confirm { margin-top: 8px; }
+
+  .ts-arrow { width: 36px; height: 56px; }
+}
