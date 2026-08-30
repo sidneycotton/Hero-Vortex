@@ -1,0 +1,219 @@
+/* =============================================================
+   CAMPAIGN MAP — standalone stylesheet
+   =============================================================
+   Kept separate from index.html's <style> block, same pattern as
+   css/team-select.css: js/campaign/map.js owns the DOM/behavior, this
+   owns the look.
+
+   Visual theme: a torn campaign-trail map. Reference points taken
+   from Slay the Spire / Legends of Runeterra: Path of Champions /
+   Monster Train's node-map screens — a winding path (not a grid) with
+   distinct icon badges per node type, a curved connector line between
+   floors, fog-of-war darkening on unreached floors, and a single
+   strong glow marking "you are here". Colors lean into Hero Vortex's
+   satirical-campaign setting: parchment/poster red as the base, with
+   each node type getting its own accent (see --cm-accent-* below)
+   instead of one flat blue for everything reachable.
+*/
+
+#campaign-map-mount {
+  position: absolute; inset: 0; z-index: 25;
+  display: none;
+}
+#campaign-map-mount.show { display: block; }
+
+.cm-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: 14px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 100% 45% at 50% 0%, rgba(120,20,30,0.22), transparent 55%),
+    radial-gradient(ellipse 90% 40% at 50% 100%, rgba(20,10,30,0.3), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 2px, transparent 2px, transparent 5px),
+    linear-gradient(180deg, #0a0710 0%, #050408 55%, #020206 100%);
+}
+
+/* ---- Header: torn-poster banner feel ---------------------------------- */
+.cm-header {
+  flex: 0 0 auto;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cm-title-wrap { min-width: 0; }
+.cm-title {
+  font-size: 17px; font-weight: 800; letter-spacing: 0.3px;
+  color: #ffb3ba;
+  text-shadow: 0 0 14px rgba(255,85,102,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cm-title-rule {
+  margin-top: 4px; height: 2px; width: 100%;
+  background: linear-gradient(90deg, #ff5566 0%, rgba(255,85,102,0.15) 70%, transparent 100%);
+}
+.cm-substats { display: flex; gap: 8px; flex: 0 0 auto; }
+.cm-stat {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12.5px; font-weight: 700; color: #e8eefc;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px; padding: 5px 10px 5px 7px;
+}
+.cm-stat-icon { width: 15px; height: 15px; flex: 0 0 auto; }
+.cm-stat-gold { color: #ffcf4a; }
+.cm-stat-gold .cm-stat-icon { color: #ffcf4a; }
+.cm-stat-party { color: #6ee7ff; }
+.cm-stat-party .cm-stat-icon { color: #6ee7ff; }
+.cm-stat span:last-child { color: #e8eefc; }
+
+/* ---- Scroll region + path ---------------------------------------------- */
+.cm-scroll {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column-reverse; /* floor 0 at bottom, boss at top */
+}
+
+.cm-path {
+  position: relative;
+  display: flex; flex-direction: column-reverse;
+  gap: 44px;
+  padding: 24px 6px;
+}
+
+.cm-floor {
+  position: relative;
+  display: flex; align-items: flex-start;
+  min-height: 74px;
+}
+
+/* Connector SVGs are absolutely positioned across each floor gap by
+   js/campaign/map.js's positionConnectors(), spanning the .cm-path's
+   own coordinate space (left:0/right:0, not the floor rows) so a
+   node's lane % lines up identically for both nodes and paths. */
+.cm-connector {
+  position: absolute; left: 0; right: 0;
+  width: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.cm-connector path {
+  fill: none;
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}
+.cm-edge-walked { stroke: rgba(255,85,102,0.4); stroke-width: 2; }
+.cm-edge-live {
+  stroke: #6ee7ff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px rgba(110,231,255,0.85));
+  stroke-dasharray: 6 5;
+  animation: cm-edge-flow 1.4s linear infinite;
+}
+@keyframes cm-edge-flow {
+  to { stroke-dashoffset: -18; }
+}
+
+/* ---- Nodes -------------------------------------------------------------- */
+.cm-node {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: 68px;
+  background: none; border: none; padding: 0;
+  color: #b9c8e6;
+  cursor: not-allowed;
+}
+
+.cm-node-badge {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.16);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+.cm-node-icon { width: 24px; height: 24px; line-height: 0; color: inherit; }
+.cm-node-icon svg { width: 100%; height: 100%; display: block; }
+.cm-node-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #b9c8e6;
+  text-align: center;
+}
+
+/* Per-type accent color, applied to the badge border/icon while a
+   node is reachable or current — see js/campaign/map.js NODE_TYPES
+   for the accent key each type maps to. Locked/visited states
+   override back to a neutral tone below so the accent only "pops"
+   when it's actually relevant to the player right now. */
+.cm-accent-battle   { --cm-accent: #ff5566; }
+.cm-accent-elite    { --cm-accent: #c86bff; }
+.cm-accent-chest    { --cm-accent: #ffcf4a; }
+.cm-accent-heal     { --cm-accent: #4ade80; }
+.cm-accent-charPick { --cm-accent: #6ee7ff; }
+.cm-accent-event    { --cm-accent: #ff9f4a; }
+.cm-accent-shop     { --cm-accent: #ffcf4a; }
+.cm-accent-training { --cm-accent: #6ee7ff; }
+.cm-accent-revival  { --cm-accent: #4ade80; }
+.cm-accent-boss     { --cm-accent: #ff2f45; }
+
+/* Locked (unreached, not yet walkable): dim fog-of-war silhouette —
+   flat, no accent color, so the eye is drawn to what's reachable. */
+.cm-node.cm-locked {
+  opacity: 0.5;
+  filter: grayscale(0.85);
+}
+.cm-node.cm-locked .cm-node-badge {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.14);
+}
+.cm-node.cm-locked .cm-node-label { color: #6b7590; }
+
+/* Visited: cleared, kept visible as a faded waypoint on the trail
+   behind you, checkmark icon (see map-icons.js) instead of its type
+   icon. */
+.cm-node.cm-visited {
+  opacity: 0.6;
+  cursor: default;
+}
+.cm-node.cm-visited .cm-node-badge {
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.04);
+  color: #8fa3c4;
+}
+
+/* Current: where the player actually is right now — the one node
+   that should read as "you are here" at a glance. */
+.cm-node.cm-current .cm-node-badge {
+  border-color: var(--cm-accent, #ff5566);
+  background: color-mix(in srgb, var(--cm-accent, #ff5566) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-accent, #ff5566) 22%, transparent),
+              0 0 18px color-mix(in srgb, var(--cm-accent, #ff5566) 55%, transparent);
+  color: var(--cm-accent, #ff5566);
+  animation: cm-pulse 1.8s ease-in-out infinite;
+}
+@keyframes cm-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* Reachable: the actual choices in front of the player — accent
+   color on the badge, but not the current node's glow/pulse, so the
+   hierarchy reads current > reachable > visited > locked. */
+.cm-node.cm-reachable {
+  cursor: pointer;
+  color: var(--cm-accent, #6ee7ff);
+}
+.cm-node.cm-reachable .cm-node-badge {
+  border-color: var(--cm-accent, #6ee7ff);
+  background: color-mix(in srgb, var(--cm-accent, #6ee7ff) 20%, rgba(255,255,255,0.05));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cm-accent, #6ee7ff) 40%, transparent);
+}
+.cm-node.cm-reachable .cm-node-label { color: #ffffff; }
+.cm-node.cm-reachable:hover .cm-node-badge {
+  transform: translateY(-3px) scale(1.05);
+  background: color-mix(in srgb, var(--cm-accent, #6ee7ff) 32%, rgba(255,255,255,0.08));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cm-accent, #6ee7ff) 55%, transparent);
+}
+.cm-node.cm-reachable:active .cm-node-badge { transform: translateY(-1px) scale(1.02); }
